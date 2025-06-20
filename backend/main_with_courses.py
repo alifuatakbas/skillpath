@@ -136,6 +136,19 @@ class UserProgress(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class Course(Base):
+    __tablename__ = "courses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    instructor = Column(String(100), nullable=False)
+    duration = Column(String(50))
+    level = Column(String(20))
+    price = Column(Float)
+    image_url = Column(String(500))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -256,6 +269,16 @@ class SkillNormalizer:
         }
 
 # Pydantic models
+class CourseResponse(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    instructor: str
+    duration: Optional[str] = None
+    level: Optional[str] = None
+    price: Optional[float] = None
+    image_url: Optional[str] = None
+
 class UserLogin(BaseModel):
     email: str
     password: str
@@ -382,11 +405,49 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return user
 
 # Initialize sample courses
+def init_sample_courses(db: Session):
+    """Örnek kursları veritabanına ekle"""
+    if db.query(Course).count() == 0:
+        sample_courses = [
+            Course(
+                title="React ile Modern Web Geliştirme",
+                description="React, hooks ve modern JavaScript ile profesyonel web uygulamaları geliştirmeyi öğrenin.",
+                instructor="Ahmet Yılmaz",
+                duration="12 saat",
+                level="Orta",
+                price=299.99,
+                image_url="https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400"
+            ),
+            Course(
+                title="Python ile Veri Bilimi",
+                description="Pandas, NumPy ve Matplotlib kullanarak veri analizi ve görselleştirme teknikleri.",
+                instructor="Dr. Elif Kaya",
+                duration="16 saat",
+                level="Başlangıç",
+                price=399.99,
+                image_url="https://images.unsplash.com/photo-1526379879527-8559ecfcaec0?w=400"
+            ),
+            Course(
+                title="UI/UX Tasarım Temelleri",
+                description="Kullanıcı deneyimi ve arayüz tasarımı prensiplerini Figma ile uygulamalı öğrenin.",
+                instructor="Zeynep Özkan",
+                duration="10 saat",
+                level="Başlangıç",
+                price=249.99,
+                image_url="https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400"
+            )
+        ]
+        
+        for course in sample_courses:
+            db.add(course)
+        db.commit()
+
 # Initialize database with sample data
 @app.on_event("startup")
 async def startup_event():
     db = SessionLocal()
     try:
+        init_sample_courses(db)
     finally:
         db.close()
 
@@ -394,6 +455,18 @@ async def startup_event():
 @app.get("/")
 async def root():
     return {"message": "SkillPath API'sine Hoş Geldiniz!", "version": "1.0.0"}
+
+@app.get("/api/courses", response_model=List[CourseResponse])
+async def get_courses(db: Session = Depends(get_db)):
+    """Tüm kursları getir"""
+    courses = db.query(Course).all()
+    return courses
+
+@app.get("/api/courses/featured", response_model=List[CourseResponse])
+async def get_featured_courses(db: Session = Depends(get_db)):
+    """Öne çıkan kursları getir"""
+    courses = db.query(Course).limit(3).all()
+    return courses
 
 @app.get("/api/auth/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
@@ -480,6 +553,27 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Register error: {str(e)}")
         raise HTTPException(status_code=500, detail="Kayıt işlemi başarısız")
+
+@app.post("/api/courses/{course_id}/enroll")
+async def enroll_course(course_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Kursa kayıt ol (Authentication gerekli)"""
+    course = db.query(Course).filter(Course.id == course_id).first()
+    
+    if not course:
+        raise HTTPException(status_code=404, detail="Kurs bulunamadı")
+    
+    if course_id in current_user.enrolled_courses:
+        raise HTTPException(status_code=400, detail="Bu kursa zaten kayıtlısınız")
+    
+    # Kullanıcının enrolled_courses listesini güncelle
+    current_user.enrolled_courses.append(course_id)
+    
+    return {
+        "success": True,
+        "message": f"{course.title} kursuna başarıyla kaydoldunuz",
+        "course_id": course_id,
+        "user_id": current_user.id
+    }
 
 @app.get("/api/health")
 async def health_check():
