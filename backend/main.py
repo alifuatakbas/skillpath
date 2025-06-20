@@ -794,7 +794,7 @@ async def generate_roadmap_new(
                 step_order=step_data["step_order"],
                 title=step_data["title"],
                 description=step_data["description"],
-                estimated_hours=step_data["estimated_hours"],
+                estimated_hours=step_data.get("estimated_hours", 20),  # Varsayılan 20 saat
                 resources=json.dumps(step_data.get("resources", [])),
                 prerequisites=json.dumps(step_data.get("projects", [])),  # Projects'i prerequisites olarak kaydet
                 is_completed=0
