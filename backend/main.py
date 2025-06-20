@@ -732,12 +732,13 @@ async def generate_roadmap_new(
             - Hedef süre: {target_weeks} hafta
             - Günlük çalışma: {daily_hours} saat
             
-            Detaylı bir öğrenme yol haritası oluştur. Her adım için:
-            - Başlık
-            - Açıklama
-            - Tahmini süre (hafta)
-            - Önerilen kaynaklar
-            - Yapılacak projeler
+            Detaylı bir öğrenme yol haritası oluştur. Her adım için MUTLAKA şunları ekle:
+            - step_order: adım sırası (1, 2, 3...)
+            - title: başlık
+            - description: açıklama
+            - estimated_hours: tahmini saat (sayısal değer, MUTLAKA gerekli)
+            - resources: önerilen kaynaklar listesi
+            - projects: yapılacak projeler listesi
             
             JSON formatında döndür:
             {{
@@ -757,6 +758,7 @@ async def generate_roadmap_new(
                 }}
             }}
             
+            ÖNEMLİ: estimated_hours alanını MUTLAKA dahil et ve sayısal değer ver.
             Türkçe oluştur.
             """
             
