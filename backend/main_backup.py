@@ -678,13 +678,13 @@ async def generate_assessment(request: AssessmentRequest):
             }
         )
 
-@app.post("/api/roadmap/create", response_model=RoadmapResponse)
-async def generate_roadmap_new(
+@app.post("/api/roadmap/generate", response_model=RoadmapResponse)
+async def generate_roadmap(
     request: RoadmapRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """AI ile kişiselleştirilmiş roadmap oluştur - POST body ile"""
+    """AI ile kişiselleştirilmiş roadmap oluştur"""
     try:
         # POST body'den değerleri al
         skill_name = request.skill_name
