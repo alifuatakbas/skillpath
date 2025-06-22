@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppConfig, selectBestEndpoint } from '../config/environment';
 import {
   AuthResponse,
   UserLogin,
@@ -21,7 +22,7 @@ import {
   NotificationResponse,
 } from '../types';
 
-const API_BASE_URL = 'http://192.168.1.133:8001';
+let API_BASE_URL = AppConfig.API_BASE_URL;
 
 // Token Manager
 export class TokenManager {
@@ -58,10 +59,27 @@ export class TokenManager {
 
 // API Helper
 class ApiClient {
+  private initialized = false;
+
+  private async initialize() {
+    if (!this.initialized) {
+      console.log('🔄 API Client initializing...');
+      try {
+        API_BASE_URL = await selectBestEndpoint();
+        console.log('✅ API Base URL set to:', API_BASE_URL);
+      } catch (error) {
+        console.log('⚠️ Failed to select best endpoint, using default:', API_BASE_URL);
+      }
+      this.initialized = true;
+    }
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    await this.initialize();
+    
     const url = `${API_BASE_URL}${endpoint}`;
     const token = await TokenManager.getToken();
 
@@ -98,7 +116,13 @@ class ApiClient {
           if (token) {
             console.error('Token preview:', token.substring(0, 50) + '...');
           }
-          // Token'ı temizle ve yeniden login gerektiğini belirt
+          
+          // Login endpoint'i için farklı hata mesajı
+          if (endpoint === '/api/auth/login') {
+            throw new Error('Geçersiz email veya şifre');
+          }
+          
+          // Diğer endpoint'ler için token temizle ve yeniden login gerektiğini belirt
           await TokenManager.removeToken();
           throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
         }
@@ -122,7 +146,7 @@ class ApiClient {
       }
       
       if (error instanceof TypeError && errorMessage.includes('Network request failed')) {
-        throw new Error('Sunucuya bağlanılamıyor. Lütfen:\n1. İnternet bağlantınızı kontrol edin\n2. Backend sunucusunun çalıştığından emin olun\n3. IP adresinin doğru olduğunu kontrol edin (192.168.1.133:8001)');
+        throw new Error('Sunucuya bağlanılamıyor. Lütfen:\n1. İnternet bağlantınızı kontrol edin\n2. Backend sunucusunun çalıştığından emin olun\n3. IP adresinin doğru olduğunu kontrol edin (192.168.1.133:8000)');
       }
       if (errorMessage.includes('timeout')) {
         throw new Error('İstek zaman aşımına uğradı. Sunucu yanıt vermiyor.');
@@ -248,4 +272,188 @@ export const getNotificationHistory = async (
   limit: number = 20
 ): Promise<NotificationResponse[]> => {
   return apiClient.get<NotificationResponse[]>(`/api/notifications/history?limit=${limit}`);
-}; 
+};
+
+// Streak API
+export const getStreakData = async (): Promise<any> => {
+  const response = await apiClient.get<any>('/api/notifications/streak');
+  return response.streak_data;
+};
+
+export const testStreakWarnings = async (): Promise<any> => {
+  const response = await apiClient.post<any>('/api/notifications/test-streak');
+  return response;
+};
+
+// Community API
+export interface CommunityStats {
+  total_posts: number;
+  total_replies: number;
+  active_users: number;
+  popular_skills: Array<{
+    name: string;
+    post_count: number;
+    learner_count: number;
+  }>;
+}
+
+export interface CommunityPost {
+  id: number;
+  title: string;
+  content: string;
+  skill_name?: string;
+  post_type: string;
+  likes_count: number;
+  replies_count: number;
+  is_expert_post: boolean;
+  author_name: string;
+  author_id: number;
+  is_liked: boolean;
+  created_at: string;
+}
+
+export interface CommunityReply {
+  id: number;
+  content: string;
+  likes_count: number;
+  author_name: string;
+  author_id: number;
+  is_liked: boolean;
+  created_at: string;
+}
+
+export interface CreatePostRequest {
+  title: string;
+  content: string;
+  skill_name?: string;
+  post_type?: string;
+}
+
+export interface CreateReplyRequest {
+  content: string;
+}
+
+export const getCommunityStats = async (): Promise<CommunityStats> => {
+  return apiClient.get('/api/community/stats');
+};
+
+export const getCommunityPosts = async (
+  filterType: string = 'all',
+  skillName?: string,
+  limit: number = 20,
+  offset: number = 0
+): Promise<CommunityPost[]> => {
+  let endpoint = `/api/community/posts?filter_type=${filterType}&limit=${limit}&offset=${offset}`;
+  if (skillName) {
+    endpoint += `&skill_name=${encodeURIComponent(skillName)}`;
+  }
+  return apiClient.get(endpoint);
+};
+
+export const createCommunityPost = async (
+  postData: CreatePostRequest
+): Promise<CommunityPost> => {
+  return apiClient.post('/api/community/posts', postData);
+};
+
+export const togglePostLike = async (
+  postId: number
+): Promise<{ success: boolean; is_liked: boolean; likes_count: number }> => {
+  return apiClient.post(`/api/community/posts/${postId}/like`);
+};
+
+export const getPostReplies = async (postId: number): Promise<CommunityReply[]> => {
+  return apiClient.get(`/api/community/posts/${postId}/replies`);
+};
+
+export const createReply = async (
+  postId: number,
+  replyData: CreateReplyRequest
+): Promise<CommunityReply> => {
+  return apiClient.post(`/api/community/posts/${postId}/replies`, replyData);
+};
+
+export const toggleReplyLike = async (
+  replyId: number
+): Promise<{ success: boolean; is_liked: boolean; likes_count: number }> => {
+  return apiClient.post(`/api/community/replies/${replyId}/like`);
+};
+
+// Gamification API
+export interface GamificationData {
+  total_xp: number;
+  current_level: number;
+  daily_xp_today: number;
+  current_streak: number;
+  longest_streak: number;
+  level_name: string;
+  next_level_xp: number;
+  achievements_count: number;
+}
+
+export interface Achievement {
+  id: number;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  earned_at?: string;
+}
+
+// DailyTask interface kaldırıldı
+
+export interface StudySession {
+  roadmap_id?: number;
+  step_id?: number;
+  duration_minutes: number;
+  focus_score?: number;
+  notes?: string;
+}
+
+export interface StudySessionResponse {
+  id: number;
+  duration_minutes: number;
+  focus_score: number;
+  xp_earned: number;
+  started_at: string;
+  ended_at?: string;
+}
+
+export const getUserGamification = async (): Promise<GamificationData> => {
+  return apiClient.get<GamificationData>('/api/user/gamification');
+};
+
+export const getUserAchievements = async (): Promise<Achievement[]> => {
+  return apiClient.get<Achievement[]>('/api/user/achievements');
+};
+
+// Daily task fonksiyonları kaldırıldı
+
+export const createStudySession = async (
+  sessionData: StudySession
+): Promise<StudySessionResponse> => {
+  return apiClient.post<StudySessionResponse>('/api/study-sessions', sessionData);
+};
+
+// Profile API
+export interface UserProfile {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+  subscription_type: string;
+  gamification: GamificationData;
+  achievements: Achievement[];
+  total_roadmaps: number;
+  completed_roadmaps: number;
+  total_study_hours: number;
+  is_own_profile: boolean;
+}
+
+export const getUserProfile = async (userId: number): Promise<UserProfile> => {
+  return apiClient.get<UserProfile>(`/api/user/profile/${userId}`);
+};
+
+export const getOwnProfile = async (): Promise<UserProfile> => {
+  return apiClient.get<UserProfile>('/api/user/profile');
+};

@@ -222,4 +222,59 @@ export interface TimezoneInfo {
   deviceTimezone: string;
   locale: string;
   country: string;
+}
+
+// Gamification Types
+export interface GamificationData {
+  total_xp: number;
+  current_level: number;
+  daily_xp_today: number;
+  current_streak: number;
+  longest_streak: number;
+  level_name: string;
+  next_level_xp: number;
+  achievements_count: number;
+}
+
+export interface Achievement {
+  id: number;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  earned_at?: string;
+}
+
+// DailyTask interface kaldırıldı
+
+export interface StudySession {
+  roadmap_id?: number;
+  step_id?: number;
+  duration_minutes: number;
+  focus_score?: number;
+  notes?: string;
+}
+
+export interface StudySessionResponse {
+  id: number;
+  duration_minutes: number;
+  focus_score: number;
+  xp_earned: number;
+  started_at: string;
+  ended_at?: string;
+}
+
+// Profile Types
+export interface UserProfile {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+  subscription_type: string;
+  gamification: GamificationData;
+  achievements: Achievement[];
+  total_roadmaps: number;
+  completed_roadmaps: number;
+  total_study_hours: number;
+  is_own_profile: boolean;
 } 

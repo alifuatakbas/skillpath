@@ -15,6 +15,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
+import { usePremium } from '../contexts/PremiumContext';
+import { subscriptionService } from '../services/subscriptionService';
 import {
   TokenManager,
   login,
@@ -23,12 +25,16 @@ import {
   suggestSkill,
   generateAssessment,
   generateRoadmap,
+  getOwnProfile,
+  // Daily task import'ları kaldırıldı
 } from '../services/api';
 import {
   User,
   UserLogin,
   UserCreate,
   SkillSuggestionResponse,
+  UserProfile,
+  // DailyTask type kaldırıldı
 } from '../types';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -42,10 +48,14 @@ export default function HomeScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [showSkillInput, setShowSkillInput] = useState(false);
   const [error, setError] = useState('');
+  
+  // Premium hooks - simplified
+  const { isPremium, refreshSubscription } = usePremium();
   
   // Auth form states
   const [loginForm, setLoginForm] = useState<UserLogin>({ email: '', password: '' });
@@ -60,9 +70,32 @@ export default function HomeScreen({ navigation }: Props) {
   const [skillSuggestions, setSkillSuggestions] = useState<SkillSuggestionResponse | null>(null);
   const [skillLoading, setSkillLoading] = useState(false);
 
+
+
   useEffect(() => {
     checkAuthStatus();
   }, []);
+
+  const loadProfile = async () => {
+    if (!isLoggedIn) return;
+    
+    try {
+      const userProfile = await getOwnProfile();
+      setProfile(userProfile);
+    } catch (error) {
+      console.error('Profile load error:', error);
+    }
+  };
+
+
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadProfile();
+    } else {
+      setProfile(null);
+    }
+  }, [isLoggedIn]);
 
   const testApiConnection = async () => {
     try {
@@ -110,12 +143,62 @@ export default function HomeScreen({ navigation }: Props) {
   const checkAuthStatus = async () => {
     try {
       const isAuth = await TokenManager.isAuthenticated();
-      const userData = await TokenManager.getUser();
       
-      setIsLoggedIn(isAuth);
-      setUser(userData);
+      if (isAuth) {
+        // Token varsa user data'yı da al
+        const userData = await TokenManager.getUser();
+        
+        if (userData) {
+          // User data varsa otomatik login yap
+          console.log('🔄 Auto-login: User found in storage:', userData.email);
+          setIsLoggedIn(true);
+          setUser(userData);
+          
+          // Premium status'u da refresh et
+          await refreshSubscription();
+          console.log('✅ Auto-login successful');
+        } else {
+          // Token var ama user data yok - backend'den al
+          console.log('🔄 Token found but no user data, fetching from backend...');
+          try {
+            // Backend'den current user bilgilerini al
+            const response = await fetch('http://192.168.1.133:8000/api/auth/me', {
+              headers: {
+                'Authorization': `Bearer ${await TokenManager.getToken()}`
+              }
+            });
+            
+            if (response.ok) {
+              const currentUser = await response.json();
+              await TokenManager.setUser(currentUser);
+              setIsLoggedIn(true);
+              setUser(currentUser);
+              await refreshSubscription();
+              console.log('✅ User data restored from backend');
+            } else {
+              // Token geçersiz, temizle
+              console.log('❌ Invalid token, clearing auth');
+              await TokenManager.removeToken();
+              setIsLoggedIn(false);
+              setUser(null);
+            }
+          } catch (error) {
+            console.error('Backend user fetch failed:', error);
+            // Backend bağlantısı yoksa mevcut durumu koru
+            setIsLoggedIn(false);
+            setUser(null);
+          }
+        }
+      } else {
+        // Token yok
+        console.log('❌ No auth token found');
+        setIsLoggedIn(false);
+        setUser(null);
+      }
     } catch (error) {
       console.error('Auth check failed:', error);
+      setIsLoggedIn(false);
+      setUser(null);
     }
   };
 
@@ -134,6 +217,10 @@ export default function HomeScreen({ navigation }: Props) {
       setIsLoggedIn(true);
       setShowAuthModal(false);
       setLoginForm({ email: '', password: '' });
+      
+      // Premium context'i refresh et
+      await refreshSubscription();
+      
       Alert.alert('Başarılı', 'Giriş başarılı!');
     } catch (error: any) {
       setError(error.message || 'Giriş başarısız');
@@ -162,6 +249,10 @@ export default function HomeScreen({ navigation }: Props) {
       setIsLoggedIn(true);
       setShowAuthModal(false);
       setRegisterForm({ name: '', email: '', password: '' });
+      
+      // Premium context'i refresh et
+      await refreshSubscription();
+      
       Alert.alert('Başarılı', 'Kayıt başarılı!');
     } catch (error: any) {
       setError(error.message || 'Kayıt başarısız');
@@ -207,6 +298,8 @@ export default function HomeScreen({ navigation }: Props) {
       return;
     }
     setShowSkillInput(true);
+    setSkillInput('');
+    setSkillSuggestions(null);
   };
 
   const handleStartAssessment = () => {
@@ -256,18 +349,60 @@ export default function HomeScreen({ navigation }: Props) {
           
           <View style={styles.headerActions}>
             {isLoggedIn ? (
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>Merhaba, {user?.name}</Text>
-                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-                  <Text style={styles.logoutText}>Çıkış</Text>
-                </TouchableOpacity>
+              <View style={styles.userSection}>
+                <View style={styles.welcomeContainer}>
+                  <Text style={styles.welcomeText}>
+                    {isPremium ? 'Merhaba,' : 'Merhaba,'}
+                  </Text>
+                  <Text style={styles.userName}>{user?.name}</Text>
+                  {!isPremium && (
+                    <Text style={styles.freeUserText}>Ücretsiz Kullanıcı</Text>
+                  )}
+                </View>
+                
+                <View style={styles.userActions}>
+                  {isPremium ? (
+                    <View style={styles.premiumBadgeNew}>
+                      <LinearGradient
+                        colors={['#fbbf24', '#f59e0b']}
+                        style={styles.premiumGradient}
+                      >
+                        <Ionicons name="diamond" size={14} color="#fff" />
+                        <Text style={styles.premiumTextNew}>Premium</Text>
+                      </LinearGradient>
+                    </View>
+                  ) : (
+                    <TouchableOpacity 
+                      style={styles.upgradeButtonNew}
+                      onPress={() => navigation.navigate('Paywall', {})}
+                    >
+                      <LinearGradient
+                        colors={['#f59e0b', '#d97706']}
+                        style={styles.upgradeGradient}
+                      >
+                        <Ionicons name="diamond-outline" size={14} color="#fff" />
+                        <Text style={styles.upgradeTextNew}>Premium Edin</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
+                  
+                  <TouchableOpacity style={styles.logoutButtonNew} onPress={handleLogout}>
+                    <Ionicons name="log-out-outline" size={16} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <TouchableOpacity 
                 onPress={() => setShowAuthModal(true)}
-                style={styles.loginButton}
+                style={styles.loginButtonNew}
               >
-                <Text style={styles.loginButtonText}>Giriş Yap</Text>
+                <LinearGradient
+                  colors={['#3b82f6', '#2563eb']}
+                  style={styles.loginGradient}
+                >
+                  <Ionicons name="person" size={14} color="#fff" />
+                  <Text style={styles.loginButtonTextNew}>Giriş</Text>
+                </LinearGradient>
               </TouchableOpacity>
             )}
           </View>
@@ -303,12 +438,22 @@ export default function HomeScreen({ navigation }: Props) {
             </TouchableOpacity>
           ) : (
             <View style={styles.skillInputContainer}>
+              <View style={styles.inputHeader}>
+                <Text style={styles.inputTitle}>Hangi beceriyi öğrenmek istiyorsunuz?</Text>
+                <TouchableOpacity
+                  onPress={() => setShowSkillInput(false)}
+                  style={styles.closeInputButton}
+                >
+                  <Text style={styles.closeInputText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              
               <View style={styles.inputRow}>
                 <TextInput
                   style={styles.skillInput}
                   value={skillInput}
                   onChangeText={setSkillInput}
-                  placeholder="Hangi beceriyi öğrenmek istiyorsunuz?"
+                  placeholder="Örn: Python, React, Grafik Tasarım..."
                   placeholderTextColor="#9ca3af"
                 />
                 <TouchableOpacity
@@ -368,15 +513,87 @@ export default function HomeScreen({ navigation }: Props) {
           )}
         </LinearGradient>
 
+        {/* Profile Card */}
+        {isLoggedIn && profile && (
+          <View style={styles.profileSection}>
+            <Text style={styles.sectionTitle}>👤 Profilim</Text>
+            <View style={styles.profileCard}>
+              <LinearGradient 
+                colors={['#667eea', '#764ba2']} 
+                start={{ x: 0, y: 0 }} 
+                end={{ x: 1, y: 0 }} 
+                style={styles.profileGradient}
+              >
+                <View style={styles.profileHeader}>
+                  <View style={styles.profileAvatar}>
+                    <Text style={styles.profileAvatarText}>
+                      {profile.name ? profile.name.charAt(0).toUpperCase() : '👤'}
+                    </Text>
+                  </View>
+                  <View style={styles.profileInfo}>
+                    <Text style={styles.profileName}>{profile.name}</Text>
+                    <Text style={styles.profileLevel}>
+                      Seviye {profile.gamification.current_level} • {profile.gamification.level_name}
+                    </Text>
+                    {profile.subscription_type === 'premium' && (
+                      <View style={styles.premiumBadgeProfile}>
+                        <Text style={styles.premiumTextProfile}>👑 Premium</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                
+                <View style={styles.profileStats}>
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>{profile.gamification.total_xp}</Text>
+                    <Text style={styles.profileStatLabel}>XP</Text>
+                  </View>
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>{profile.gamification.current_streak}</Text>
+                    <Text style={styles.profileStatLabel}>Streak</Text>
+                  </View>
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>{profile.achievements?.length || 0}</Text>
+                    <Text style={styles.profileStatLabel}>Rozet</Text>
+                  </View>
+                  <View style={styles.profileStatItem}>
+                    <Text style={styles.profileStatValue}>{profile.total_roadmaps}</Text>
+                    <Text style={styles.profileStatLabel}>Roadmap</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.viewProfileButton}
+                  onPress={() => navigation.navigate('Profile', {})}
+                >
+                  <Text style={styles.viewProfileText}>Profili Görüntüle</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#fff" />
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          </View>
+        )}
+
+
+
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('RoadmapGeneration')}
+            onPress={() => {
+              if (isLoggedIn) {
+                // RoadmapGeneration screen'ine git
+                navigation.navigate('RoadmapGeneration');
+              } else {
+                Alert.alert('Giriş Gerekli', 'Roadmap oluşturmak için önce giriş yapmalısınız.');
+              }
+            }}
           >
             <LinearGradient colors={['#667eea', '#764ba2']} style={styles.actionGradient}>
               <Ionicons name="map-outline" size={28} color="#fff" />
-              <Text style={styles.actionText}>Roadmap Oluştur</Text>
+              <Text style={styles.actionText}>
+                Roadmap Oluştur
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -389,6 +606,18 @@ export default function HomeScreen({ navigation }: Props) {
               <Text style={styles.actionText}>Dashboard</Text>
             </LinearGradient>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Community')}
+          >
+            <LinearGradient colors={['#4facfe', '#00f2fe']} style={styles.actionGradient}>
+              <Ionicons name="people-outline" size={28} color="#fff" />
+              <Text style={styles.actionText}>Topluluk</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Daily task kartı kaldırıldı */}
         </View>
       </ScrollView>
 
@@ -551,21 +780,153 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // Yeni modern header tasarımı
+  userSection: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  welcomeContainer: {
+    alignItems: 'flex-end',
+  },
+  welcomeText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  userName: {
+    fontSize: 15,
+    color: '#1f2937',
+    fontWeight: '600',
+  },
+  freeUserText: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  userActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  premiumBadgeNew: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#fbbf24',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  premiumGradient: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  premiumTextNew: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  upgradeButtonNew: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#f59e0b',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  upgradeGradient: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  upgradeTextNew: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  logoutButtonNew: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  loginButtonNew: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#3b82f6',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  loginGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  loginButtonTextNew: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Eski stiller (geriye dönük uyumluluk için)
   userInfo: {
     alignItems: 'flex-end',
   },
-  userName: {
-    fontSize: 14,
-    color: '#374151',
-    marginBottom: 4,
+  userDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  premiumBadge: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  premiumText: {
+    color: '#d97706',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   logoutButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    marginTop: 4,
   },
   logoutText: {
-    fontSize: 12,
     color: '#6b7280',
+    fontSize: 12,
   },
   loginButton: {
     backgroundColor: '#3b82f6',
@@ -822,14 +1183,26 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     padding: 20,
+    gap: 12,
   },
   actionButton: {
+    width: '48%',
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    marginBottom: 12,
   },
   actionGradient: {
     padding: 12,
@@ -838,6 +1211,142 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
+    color: '#fff',
+    marginTop: 8,
   },
+  upgradeButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  upgradeText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  inputTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    flex: 1,
+  },
+  closeInputButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  closeInputText: {
+    fontSize: 18,
+    color: '#6b7280',
+    fontWeight: 'bold',
+  },
+  // Profile Card Styles
+  profileSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 12,
+  },
+  profileCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  profileGradient: {
+    padding: 20,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  profileAvatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  profileLevel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 8,
+  },
+  premiumBadgeProfile: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  premiumTextProfile: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  profileStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  profileStatItem: {
+    alignItems: 'center',
+  },
+  profileStatValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  profileStatLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  viewProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  viewProfileText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+
+
 }); 

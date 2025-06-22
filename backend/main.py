@@ -1,9 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone, date
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 import uvicorn
@@ -25,6 +25,8 @@ import pytz
 import atexit
 import logging
 from sqlalchemy.sql import text
+
+# Daily task import'ları kaldırıldı
 
 # Load environment variables
 load_dotenv()
@@ -52,10 +54,24 @@ app.add_middleware(
 )
 
 # Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:password@localhost:3306/skillpath")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:Alifuat201@localhost:3306/skillpath")
 
-# Create SQLAlchemy engine
-engine = create_engine(DATABASE_URL, echo=True)
+# Create SQLAlchemy engine with optimized connection pool
+engine = create_engine(
+    DATABASE_URL, 
+    echo=False,  # Production'da echo=False
+    pool_size=20,           # 20 ana bağlantı
+    max_overflow=30,        # 30 ekstra bağlantı
+    pool_recycle=3600,      # 1 saat sonra bağlantıları yenile
+    pool_pre_ping=True,     # Bağlantı sağlığını kontrol et
+    pool_timeout=30,        # 30 saniye timeout
+    connect_args={
+        "charset": "utf8mb4",
+        "connect_timeout": 60,
+        "read_timeout": 60,
+        "write_timeout": 60,
+    }
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -111,6 +127,7 @@ class Roadmap(Base):
     description = Column(Text)
     total_weeks = Column(Integer)
     difficulty_level = Column(String(20))
+    daily_hours = Column(Integer, default=2)  # Kullanıcının günlük çalışma saati
     roadmap_data = Column(Text)  # JSON format - yol haritası detayları
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -197,6 +214,92 @@ class PushToken(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class CommunityPost(Base):
+    __tablename__ = "community_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    title = Column(String(300), nullable=False)
+    content = Column(Text, nullable=False)
+    skill_name = Column(String(100), nullable=True)
+    post_type = Column(String(20), default="question")  # question, tip, resource, discussion
+    likes_count = Column(Integer, default=0)
+    replies_count = Column(Integer, default=0)
+    is_expert_post = Column(Integer, default=0)  # 1 if posted by expert
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class CommunityReply(Base):
+    __tablename__ = "community_replies"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    likes_count = Column(Integer, default=0)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class CommunityLike(Base):
+    __tablename__ = "community_likes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    post_id = Column(Integer, nullable=True)
+    reply_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+# Günlük Görevler ve Gamification Modelleri
+# Daily Task ve Study Session modelleri kaldırıldı
+
+class UserGamification(Base):
+    __tablename__ = "user_gamification"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False, unique=True)
+    total_xp = Column(Integer, default=0)
+    current_level = Column(Integer, default=1)
+    daily_xp_today = Column(Integer, default=0)
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_activity_date = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class Achievement(Base):
+    __tablename__ = "achievements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    icon = Column(String(50))
+    category = Column(String(30))  # learning, community, streak
+    condition_type = Column(String(30))  # xp_total, streak_days, tasks_completed
+    condition_value = Column(Integer)
+    xp_reward = Column(Integer, default=0)
+    is_active = Column(Integer, default=1)
+
+class UserAchievement(Base):
+    __tablename__ = "user_achievements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    achievement_id = Column(Integer, nullable=False)
+    earned_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class XPHistory(Base):
+    __tablename__ = "xp_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    xp_amount = Column(Integer, nullable=False)
+    reason = Column(String(200), nullable=False)
+    reference_type = Column(String(30), nullable=True)  # daily_task, study_session, etc.
+    reference_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -208,10 +311,191 @@ def get_db():
     finally:
         db.close()
 
+# Gamification Helper Functions
+def award_xp(db: Session, user_id: int, xp_amount: int, reason: str, reference_type: str = None, reference_id: int = None):
+    """XP ver ve seviye kontrolü yap"""
+    
+    # XP geçmişine ekle
+    xp_record = XPHistory(
+        user_id=user_id,
+        xp_amount=xp_amount,
+        reason=reason,
+        reference_type=reference_type,
+        reference_id=reference_id
+    )
+    db.add(xp_record)
+    
+    # Kullanıcı gamification bilgilerini güncelle
+    user_game = db.query(UserGamification).filter(
+        UserGamification.user_id == user_id
+    ).first()
+    
+    if not user_game:
+        user_game = UserGamification(user_id=user_id, total_xp=0, current_level=1)
+        db.add(user_game)
+    
+    # XP güncelle
+    user_game.total_xp += xp_amount
+    user_game.daily_xp_today += xp_amount
+    
+    # Seviye hesapla
+    new_level = calculate_level(user_game.total_xp)
+    if new_level > user_game.current_level:
+        user_game.current_level = new_level
+        # Seviye atlama bonusu (recursive call önlemek için direkt XP ekliyoruz)
+        bonus_xp = XPHistory(
+            user_id=user_id,
+            xp_amount=50,
+            reason=f"Seviye {new_level}'e yükseldi!",
+            reference_type="level_up"
+        )
+        db.add(bonus_xp)
+        user_game.total_xp += 50
+    
+    # Streak güncelle
+    today = datetime.now(timezone.utc).date()
+    if user_game.last_activity_date and user_game.last_activity_date.date() == today - timedelta(days=1):
+        user_game.current_streak += 1
+        user_game.longest_streak = max(user_game.longest_streak, user_game.current_streak)
+    elif not user_game.last_activity_date or user_game.last_activity_date.date() != today:
+        user_game.current_streak = 1
+    
+    user_game.last_activity_date = datetime.now(timezone.utc)
+    
+    db.commit()
+    
+    # Achievement kontrolü yap
+    check_and_award_achievements(db, user_id, reference_type, reference_id)
+    
+    return {
+        "xp_earned": xp_amount,
+        "total_xp": user_game.total_xp,
+        "current_level": user_game.current_level,
+        "current_streak": user_game.current_streak
+    }
+
+def check_and_award_achievements(db: Session, user_id: int, reference_type: str = None, reference_id: int = None):
+    """Kullanıcının achievement'larını kontrol et ve ödülle"""
+    
+    try:
+        # Kullanıcının mevcut gamification verilerini al
+        user_game = db.query(UserGamification).filter(
+            UserGamification.user_id == user_id
+        ).first()
+        
+        if not user_game:
+            return
+        
+        # Henüz kazanılmamış achievement'ları al
+        earned_achievement_ids = db.query(UserAchievement.achievement_id).filter(
+            UserAchievement.user_id == user_id
+        ).subquery()
+        
+        available_achievements = db.query(Achievement).filter(
+            ~Achievement.id.in_(earned_achievement_ids),
+            Achievement.is_active == 1
+        ).all()
+        
+        new_achievements = []
+        
+        for achievement in available_achievements:
+            earned = False
+            
+            # Achievement türüne göre kontrol et
+            if achievement.condition_type == "complete_daily_task":
+                if reference_type == "daily_task":
+                    daily_task_count = db.query(XPHistory).filter(
+                        XPHistory.user_id == user_id,
+                        XPHistory.reference_type == "daily_task"
+                    ).count()
+                    earned = daily_task_count >= achievement.condition_value
+                    
+            elif achievement.condition_type == "streak_days":
+                earned = user_game.current_streak >= achievement.condition_value
+                
+            elif achievement.condition_type == "total_xp":
+                earned = user_game.total_xp >= achievement.condition_value
+                
+            elif achievement.condition_type == "complete_roadmap":
+                if reference_type == "roadmap_complete":
+                    completed_roadmaps = db.query(XPHistory).filter(
+                        XPHistory.user_id == user_id,
+                        XPHistory.reference_type == "roadmap_complete"
+                    ).count()
+                    earned = completed_roadmaps >= achievement.condition_value
+                    
+            elif achievement.condition_type == "study_hours":
+                total_study_minutes = db.query(func.sum(StudySession.duration_minutes)).filter(
+                    StudySession.user_id == user_id
+                ).scalar() or 0
+                total_study_hours = total_study_minutes / 60
+                earned = total_study_hours >= achievement.condition_value
+                
+            elif achievement.condition_type == "create_post":
+                # Community post oluşturma achievement'ı
+                total_posts = db.query(CommunityPost).filter(
+                    CommunityPost.user_id == user_id,
+                    CommunityPost.is_active == 1
+                ).count()
+                earned = total_posts >= achievement.condition_value
+                
+            elif achievement.condition_type == "reply_count":
+                # Community reply achievement'ı
+                total_replies = db.query(CommunityReply).filter(
+                    CommunityReply.user_id == user_id,
+                    CommunityReply.is_active == 1
+                ).count()
+                earned = total_replies >= achievement.condition_value
+            
+            # Achievement kazanıldıysa kaydet
+            if earned:
+                user_achievement = UserAchievement(
+                    user_id=user_id,
+                    achievement_id=achievement.id,
+                    earned_at=datetime.now(timezone.utc)
+                )
+                db.add(user_achievement)
+                new_achievements.append(achievement)
+                
+                # Achievement XP'si varsa ver
+                if achievement.xp_reward > 0:
+                    xp_record = XPHistory(
+                        user_id=user_id,
+                        xp_amount=achievement.xp_reward,
+                        reason=f"Achievement: {achievement.name}",
+                        reference_type="achievement",
+                        reference_id=achievement.id
+                    )
+                    db.add(xp_record)
+                    user_game.total_xp += achievement.xp_reward
+        
+        db.commit()
+        
+        # Yeni achievement'lar varsa bildirim gönder
+        if new_achievements:
+            for achievement in new_achievements:
+                print(f"🏆 User {user_id} earned achievement: {achievement.name}")
+                # TODO: Push notification gönder
+                
+    except Exception as e:
+        print(f"Achievement check failed for user {user_id}: {e}")
+        db.rollback()
+
+def calculate_level(total_xp: int) -> int:
+    """XP'ye göre seviye hesapla"""
+    if total_xp < 500:
+        return 1  # Beginner
+    elif total_xp < 2000:
+        return 2  # Intermediate  
+    elif total_xp < 5000:
+        return 3  # Advanced
+    else:
+        return 4  # Expert
+
 # JWT Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours instead of 30 minutes
+ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 days (30 * 24 * 60 minutes)
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -517,23 +801,23 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        print(f"Received token: {credentials.credentials[:50]}...")
+        print(f"🔑 Received token: {credentials.credentials[:50]}...")
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"JWT payload: {payload}")
+        print(f"📋 JWT payload: {payload}")
         email: str = payload.get("sub")
-        print(f"Email from token: {email}")
+        print(f"📧 Email from token: {email}")
         if email is None:
-            print("Email is None in token payload")
+            print("❌ Email is None in token payload")
             raise credentials_exception
     except JWTError as e:
-        print(f"JWT Error: {e}")
+        print(f"❌ JWT Error: {e}")
         raise credentials_exception
     
     user = get_user_by_email(db, email=email)
     if user is None:
-        print(f"User not found for email: {email}")
+        print(f"❌ User not found for email: {email}")
         raise credentials_exception
-    print(f"User found: {user.email}")
+    print(f"✅ User found: {user.email}, Premium: {user.subscription_type}")
     return user
 
 # Notification Service Functions
@@ -735,6 +1019,167 @@ class PushNotificationService:
             print(f"Push notification failed: {e}")
             return {"success": False, "error": str(e)}
     
+    def calculate_user_streak(self, db: Session, user_id: int) -> dict:
+        """Kullanıcının güncel streak durumunu hesapla"""
+        try:
+            # Son 30 günlük aktiviteleri al
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+            
+            activities = db.query(UserActivity).filter(
+                UserActivity.user_id == user_id,
+                UserActivity.activity_type == "step_complete",
+                UserActivity.created_at >= thirty_days_ago
+            ).order_by(UserActivity.created_at.desc()).all()
+            
+            if not activities:
+                return {"current_streak": 0, "last_activity": None, "days_since_last": 0}
+            
+            # Günlük aktiviteleri grupla
+            daily_activities = {}
+            for activity in activities:
+                activity_date = activity.created_at.date()
+                if activity_date not in daily_activities:
+                    daily_activities[activity_date] = []
+                daily_activities[activity_date].append(activity)
+            
+            # Streak hesapla
+            current_streak = 0
+            today = datetime.now().date()
+            check_date = today
+            
+            # Bugünden geriye doğru streak'i hesapla
+            while check_date in daily_activities:
+                current_streak += 1
+                check_date -= timedelta(days=1)
+            
+            # Eğer bugün aktivite yoksa, dünden başla
+            if today not in daily_activities:
+                current_streak = 0
+                check_date = today - timedelta(days=1)
+                while check_date in daily_activities:
+                    current_streak += 1
+                    check_date -= timedelta(days=1)
+            
+            # Son aktivite tarihi
+            last_activity = max(daily_activities.keys()) if daily_activities else None
+            days_since_last = (today - last_activity).days if last_activity else 999
+            
+            return {
+                "current_streak": current_streak,
+                "last_activity": last_activity,
+                "days_since_last": days_since_last
+            }
+            
+        except Exception as e:
+            print(f"Error calculating streak for user {user_id}: {e}")
+            return {"current_streak": 0, "last_activity": None, "days_since_last": 0}
+    
+    def check_streak_warnings(self):
+        """Streak bozulma riski olan kullanıcıları kontrol et ve uyarı gönder"""
+        try:
+            db = SessionLocal()
+            
+            print("Checking streak warnings...")
+            
+            # Streak uyarısı aktif olan kullanıcıları al
+            preferences = db.query(NotificationPreference).filter(
+                NotificationPreference.streak_warning_enabled == 1
+            ).all()
+            
+            print(f"Found {len(preferences)} users with streak warnings enabled")
+            
+            for pref in preferences:
+                try:
+                    # Kullanıcının streak durumunu hesapla
+                    streak_data = self.calculate_user_streak(db, pref.user_id)
+                    days_since_last = streak_data["days_since_last"]
+                    current_streak = streak_data["current_streak"]
+                    
+                    # Uyarı koşulları:
+                    # 1. Son aktiviteden 1 gün geçti ve streak > 0
+                    # 2. Son aktiviteden 2 gün geçti (streak kaybetme riski)
+                    should_warn = False
+                    warning_type = ""
+                    
+                    if days_since_last == 1 and current_streak > 0:
+                        should_warn = True
+                        warning_type = "streak_risk"
+                    elif days_since_last >= 2 and current_streak > 0:
+                        should_warn = True
+                        warning_type = "streak_lost"
+                    
+                    if not should_warn:
+                        continue
+                    
+                    # Son 24 saatte aynı türde uyarı gönderildi mi kontrol et
+                    last_24h = datetime.now() - timedelta(hours=24)
+                    recent_warning = db.query(NotificationLog).filter(
+                        NotificationLog.user_id == pref.user_id,
+                        NotificationLog.notification_type.like(f"{warning_type}%"),
+                        NotificationLog.sent_at >= last_24h
+                    ).first()
+                    
+                    if recent_warning:
+                        print(f"Recent {warning_type} warning already sent to user {pref.user_id}")
+                        continue
+                    
+                    # Push token al
+                    push_token_result = db.execute(
+                        text("SELECT push_token FROM push_tokens WHERE user_id = :user_id AND is_active = 1 ORDER BY created_at DESC LIMIT 1"),
+                        {"user_id": pref.user_id}
+                    ).fetchone()
+                    
+                    if not push_token_result:
+                        print(f"No active push token found for user {pref.user_id}")
+                        continue
+                    
+                    push_token = push_token_result[0]
+                    
+                    # Kullanıcı bilgilerini al
+                    user = db.query(User).filter(User.id == pref.user_id).first()
+                    user_name = user.full_name if user and user.full_name else "Kullanıcı"
+                    
+                    # Uyarı mesajını oluştur
+                    if warning_type == "streak_risk":
+                        title = f"🔥 {current_streak} günlük seriniz risk altında!"
+                        message = f"Merhaba {user_name}! Bugün bir adım tamamlayarak {current_streak} günlük serinizi koruyun! 💪"
+                    else:  # streak_lost
+                        title = f"💔 {current_streak} günlük seriniz sona erdi"
+                        message = f"Üzülme {user_name}! Yeni bir seri başlatmak için bugün bir adım tamamla! 🚀"
+                    
+                    # Push notification gönder
+                    result = self.send_push_notification(
+                        push_token=push_token,
+                        title=title,
+                        message=message,
+                        data={
+                            'type': warning_type,
+                            'current_streak': current_streak,
+                            'days_since_last': days_since_last
+                        }
+                    )
+                    
+                    # Bildirimi logla
+                    NotificationService.log_notification(
+                        db=db,
+                        user_id=pref.user_id,
+                        notification_type=f"{warning_type}_warning",
+                        title=title,
+                        message=message,
+                        push_token=push_token
+                    )
+                    
+                    print(f"Streak warning sent to user {pref.user_id}: {warning_type} - {result['success']}")
+                    
+                except Exception as e:
+                    print(f"Failed to check streak for user {pref.user_id}: {e}")
+                    continue
+            
+            db.close()
+            
+        except Exception as e:
+            print(f"Streak warning job failed: {e}")
+    
     def send_daily_reminders(self):
         """Tüm kullanıcılar için günlük hatırlatmaları gönder"""
         try:
@@ -757,17 +1202,16 @@ class PushNotificationService:
             for pref in preferences:
                 try:
                     # Kullanıcının en son push token'ını al
-                    latest_token_log = db.query(NotificationLog).filter(
-                        NotificationLog.user_id == pref.user_id,
-                        NotificationLog.notification_type == "push_token_registration",
-                        NotificationLog.push_token.isnot(None)
-                    ).order_by(NotificationLog.sent_at.desc()).first()
+                    latest_push_token = db.query(PushToken).filter(
+                        PushToken.user_id == pref.user_id,
+                        PushToken.is_active == 1
+                    ).order_by(PushToken.updated_at.desc()).first()
                     
-                    if not latest_token_log:
+                    if not latest_push_token:
                         print(f"No push token found for user {pref.user_id}")
                         continue
                     
-                    push_token = latest_token_log.push_token
+                    push_token = latest_push_token.push_token
                     
                     # Kullanıcının roadmap bilgilerini al
                     reminder_data = NotificationService.get_next_step_for_reminder(db, pref.user_id)
@@ -834,6 +1278,15 @@ def setup_scheduler():
             replace_existing=True
         )
         
+        # Streak kontrolü - her 2 saatte bir çalışır (10:00, 12:00, 14:00, 16:00, 18:00, 20:00)
+        scheduler.add_job(
+            func=push_service.check_streak_warnings,
+            trigger=CronTrigger(hour='10,12,14,16,18,20', minute=0),
+            id='streak_warnings',
+            name='Streak Warning Job',
+            replace_existing=True
+        )
+        
         scheduler.start()
         print("Scheduler started successfully")
         
@@ -843,10 +1296,102 @@ def setup_scheduler():
     except Exception as e:
         print(f"Scheduler setup failed: {e}")
 
+def initialize_default_achievements(db: Session):
+    """Varsayılan achievement'ları oluştur"""
+    
+    default_achievements = [
+        {
+            "name": "İlk Adım",
+            "description": "İlk günlük görevini tamamla",
+            "icon": "🎯",
+            "category": "learning",
+            "condition_type": "complete_daily_task",
+            "condition_value": 1,
+            "xp_reward": 25
+        },
+        {
+            "name": "Çalışkan",
+            "description": "Toplam 10 saat çalış",
+            "icon": "📚",
+            "category": "learning", 
+            "condition_type": "study_hours",
+            "condition_value": 10,
+            "xp_reward": 150
+        },
+        {
+            "name": "3 Günlük Streak",
+            "description": "3 gün üst üste çalış",
+            "icon": "🔥",
+            "category": "streak",
+            "condition_type": "streak_days",
+            "condition_value": 3,
+            "xp_reward": 100
+        },
+        {
+            "name": "Haftalık Şampiyon",
+            "description": "7 gün üst üste çalış",
+            "icon": "👑",
+            "category": "streak", 
+            "condition_type": "streak_days",
+            "condition_value": 7,
+            "xp_reward": 250
+        },
+        {
+            "name": "XP Avcısı",
+            "description": "1000 XP topla",
+            "icon": "⭐",
+            "category": "learning",
+            "condition_type": "total_xp", 
+            "condition_value": 1000,
+            "xp_reward": 200
+        },
+        {
+            "name": "İlk Roadmap",
+            "description": "İlk roadmap'ini tamamla",
+            "icon": "🏆",
+            "category": "learning",
+            "condition_type": "complete_roadmap",
+            "condition_value": 1,
+            "xp_reward": 500
+        }
+    ]
+    
+    for ach_data in default_achievements:
+        # Mevcut achievement'ı kontrol et
+        existing = db.query(Achievement).filter(
+            Achievement.name == ach_data["name"]
+        ).first()
+        
+        if not existing:
+            achievement = Achievement(**ach_data)
+            db.add(achievement)
+    
+    try:
+        db.commit()
+        print("✅ Default achievements initialized")
+    except Exception as e:
+        print(f"❌ Achievement initialization failed: {e}")
+        db.rollback()
+
 # Initialize database with sample data
 @app.on_event("startup")
 async def startup_event():
     """Initialize database"""
+    # Tabloları oluştur
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database tables created successfully")
+        
+        # Default achievement'ları initialize et
+        db = SessionLocal()
+        try:
+            initialize_default_achievements(db)
+        finally:
+            db.close()
+            
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+    
     setup_scheduler()
 
 # API Endpoints
@@ -884,6 +1429,8 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         "id": user.id,
         "name": user.full_name or user.username,  # full_name yoksa username kullan
         "email": user.email,
+        "subscription_type": user.subscription_type or "free",  # Premium bilgisi ekle
+        "subscription_expires": user.subscription_expires.isoformat() if user.subscription_expires else None,
         "created_at": user.created_at.isoformat()
     }
     
@@ -926,6 +1473,8 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
             "id": user.id,
             "name": user.full_name or user.username,  # full_name yoksa username kullan
             "email": user.email,
+            "subscription_type": user.subscription_type or "free",  # Premium bilgisi ekle
+            "subscription_expires": user.subscription_expires.isoformat() if user.subscription_expires else None,
             "created_at": user.created_at.isoformat()
         }
         
@@ -948,12 +1497,13 @@ async def health_check():
 # Dashboard & Analytics Endpoints
 @app.get("/api/user/dashboard", response_model=DashboardStats)
 async def get_user_dashboard(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Kullanıcının genel istatistiklerini getir"""
     try:
-        # Test için user_id = 2 kullan
-        user_id = 2
+        # Gerçek kullanıcı ID'sini kullan
+        user_id = current_user.id
         
         # Toplam roadmap sayısı
         total_roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).count()
@@ -991,9 +1541,17 @@ async def get_user_dashboard(
         # Completion percentage
         completion_percentage = (completed_steps / total_steps * 100) if total_steps > 0 else 0
         
-        # Streak hesaplama (şimdilik basit implementation)
-        current_streak = 0  # TODO: Implement streak logic
-        longest_streak = 0  # TODO: Implement streak logic
+        # Streak hesaplama
+        user_game = db.query(UserGamification).filter(
+            UserGamification.user_id == user_id
+        ).first()
+        
+        if user_game:
+            current_streak = user_game.current_streak
+            longest_streak = user_game.longest_streak
+        else:
+            current_streak = 0
+            longest_streak = 0
         
         return DashboardStats(
             total_roadmaps=total_roadmaps,
@@ -1013,12 +1571,13 @@ async def get_user_dashboard(
 
 @app.get("/api/user/roadmaps", response_model=List[RoadmapSummary])
 async def get_user_roadmaps(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Kullanıcının tüm roadmap'lerini getir"""
     try:
-        # Test için user_id = 2 kullan
-        user_id = 2
+        # Gerçek kullanıcı ID'sini kullan
+        user_id = current_user.id
         
         roadmaps = db.query(Roadmap).filter(
             Roadmap.user_id == user_id
@@ -1152,13 +1711,34 @@ async def complete_roadmap_step(
         
         # Step'i tamamlanmış olarak işaretle
         step.is_completed = 1
+        
+        # UserActivity kaydı ekle (streak hesaplaması için) - activity_data olmadan
+        try:
+            activity = UserActivity(
+                user_id=current_user.id,
+                activity_type="step_complete",
+                roadmap_id=roadmap_id,
+                step_id=step_id
+            )
+            db.add(activity)
+        except Exception as activity_error:
+            print(f"UserActivity creation failed: {activity_error}")
+            # Activity creation başarısız olsa da step completion devam etsin
+        
         db.commit()
+        
+        # Achievement kontrolü yap
+        check_and_award_achievements(db, current_user.id, "roadmap_step", step_id)
         
         # Progress bilgilerini hesapla
         steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap_id).all()
         total_steps = len(steps)
         completed_steps = sum(1 for s in steps if s.is_completed)
         completion_percentage = (completed_steps / total_steps * 100) if total_steps > 0 else 0
+        
+        # Eğer roadmap tamamen tamamlandıysa, roadmap completion achievement'ı kontrol et
+        if completion_percentage == 100:
+            check_and_award_achievements(db, current_user.id, "roadmap_complete", roadmap_id)
         
         return {
             "success": True,
@@ -1173,7 +1753,9 @@ async def complete_roadmap_step(
         raise
     except Exception as e:
         print(f"Complete step failed: {e}")
-        raise HTTPException(status_code=500, detail="Adım tamamlanamadı")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Adım tamamlanamadı: {str(e)}")
 
 @app.put("/api/roadmap/{roadmap_id}/step/{step_id}/uncomplete")
 async def uncomplete_roadmap_step(
@@ -1333,13 +1915,18 @@ async def generate_roadmap_new(
 ):
     """AI ile kişiselleştirilmiş roadmap oluştur - POST body ile"""
     try:
+        print(f"🚀 Roadmap oluşturma başladı - User: {current_user.id}, Skill: {request.skill_name}")
+        
         # POST body'den değerleri al
         skill_name = request.skill_name
         target_weeks = request.target_weeks
         current_level = request.current_level
         daily_hours = request.daily_hours
         
+        print(f"📝 Parametreler: {skill_name}, {target_weeks} hafta, {current_level}, {daily_hours} saat/gün")
+        
         if not openai_client:
+            print("⚠️ OpenAI client yok, fallback kullanılıyor")
             # Basit fallback roadmap
             roadmap_data = {
                 "title": f"{skill_name} Öğrenme Yol Haritası",
@@ -1372,6 +1959,7 @@ async def generate_roadmap_new(
                 ]
             }
         else:
+            print("🤖 OpenAI ile roadmap oluşturuluyor")
             # AI ile detaylı roadmap oluştur
             prompt = f"""
             Kullanıcı "{skill_name}" öğrenmek istiyor.
@@ -1418,6 +2006,8 @@ async def generate_roadmap_new(
             ai_result = json.loads(response.choices[0].message.content)
             roadmap_data = ai_result["roadmap"]
         
+        print(f"✅ Roadmap verisi hazırlandı: {roadmap_data['title']}")
+        
         # Veritabanına kaydet
         new_roadmap = Roadmap(
             user_id=current_user.id,
@@ -1426,6 +2016,7 @@ async def generate_roadmap_new(
             description=f"{skill_name} için kişiselleştirilmiş öğrenme yolu",
             total_weeks=target_weeks,
             difficulty_level=current_level,
+            daily_hours=daily_hours,
             roadmap_data=json.dumps(roadmap_data),
             is_active=1
         )
@@ -1433,6 +2024,8 @@ async def generate_roadmap_new(
         db.add(new_roadmap)
         db.commit()
         db.refresh(new_roadmap)
+        
+        print(f"💾 Roadmap veritabanına kaydedildi: ID {new_roadmap.id}")
         
         # Adımları kaydet
         for step_data in roadmap_data["steps"]:
@@ -1449,17 +2042,38 @@ async def generate_roadmap_new(
             db.add(step)
         
         db.commit()
+        print(f"📋 {len(roadmap_data['steps'])} adım kaydedildi")
+        
+        # Günlük görevleri otomatik olarak oluştur - AI İLE AKILLI ÜRETIM
+        try:
+            print("⚙️ Günlük görevler oluşturuluyor...")
+            daily_tasks = await generate_daily_tasks_for_roadmap(new_roadmap.id, current_user.id, db)
+            print(f"✅ {len(daily_tasks)} günlük görev oluşturuldu")
+        except Exception as e:
+            print(f"⚠️ AI günlük görev oluşturma hatası: {e}")
+            # AI başarısız olursa fallback kullan
+            try:
+                print("🔄 Fallback günlük görev sistemi devreye giriyor...")
+                daily_tasks = await generate_daily_tasks_for_roadmap_simple(new_roadmap.id, current_user.id, db)
+                print(f"✅ {len(daily_tasks)} fallback günlük görev oluşturuldu")
+            except Exception as fallback_error:
+                print(f"❌ Fallback günlük görev oluşturma da başarısız: {fallback_error}")
+            # Hata olsa bile roadmap'i döndür
         
         return RoadmapResponse(
             success=True,
             roadmap_id=new_roadmap.id,
             roadmap=roadmap_data,
-            message="Kişiselleştirilmiş roadmap başarıyla oluşturuldu!"
+            message="Kişiselleştirilmiş roadmap ve günlük görevler başarıyla oluşturuldu!"
         )
             
     except Exception as e:
-        print(f"Roadmap generation failed: {e}")
-        raise HTTPException(status_code=500, detail="Roadmap oluşturulamadı")
+        print(f"❌ Roadmap generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Roadmap oluşturulamadı: {str(e)}")
+
+# Daily task oluşturma fonksiyonu kaldırıldı
 
 @app.get("/api/roadmap/{roadmap_id}")
 async def get_roadmap(
@@ -1483,6 +2097,8 @@ async def get_roadmap(
             RoadmapStep.roadmap_id == roadmap_id
         ).order_by(RoadmapStep.step_order).all()
         
+        # Daily task kaldırıldı
+        
         # JSON formatında roadmap verisini parse et
         roadmap_data = json.loads(roadmap.roadmap_data) if roadmap.roadmap_data else {}
         
@@ -1501,6 +2117,8 @@ async def get_roadmap(
                 "projects": step_prerequisites,  # Prerequisites'ı projeler olarak kullan
                 "is_completed": bool(step.is_completed)
             })
+        
+        # Daily task kaldırıldı
         
         return {
             "success": True,
@@ -1760,50 +2378,1008 @@ async def send_test_push_notification(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Test push bildirimi gönder"""
+    """Test push notification gönder"""
     try:
-        # Get user's push token
-        push_token_record = db.execute(
+        print(f"User found: {current_user.email}")
+        
+        # En son push token'ı al
+        push_token_result = db.execute(
             text("SELECT push_token FROM push_tokens WHERE user_id = :user_id ORDER BY created_at DESC LIMIT 1"),
             {"user_id": current_user.id}
         ).fetchone()
         
-        if not push_token_record:
+        if not push_token_result:
             return {"success": False, "message": "Push token bulunamadı"}
         
-        push_token = push_token_record.push_token
+        push_token = push_token_result[0]
         
-        # Send test notification
-        push_service = PushNotificationService()
-        title = "Test Bildirimi 🧪"
-        message = f"Merhaba {current_user.full_name or 'Kullanıcı'}! Bu bir test bildirimidir."
-        
+        # Test notification gönder
         result = push_service.send_push_notification(
             push_token=push_token,
-            title=title,
-            message=message,
-            data={"type": "test", "user_id": current_user.id}
+            title="Test Bildirimi 🧪",
+            message=f"Merhaba {current_user.full_name or 'Test Kullanıcı'}! Bu bir test bildirimidir.",
+            data={
+                'type': 'test',
+                'user_id': current_user.id
+            }
         )
         
-        if result["success"]:
-            # Log the notification
-            NotificationService.log_notification(
-                db=db,
-                user_id=current_user.id,
-                notification_type="test_push",
-                title=title,
-                message=message,
-                push_token=push_token
-            )
-            db.commit()
-            
-            return {"success": True, "message": "Test bildirimi gönderildi"}
+        if result.get('success'):
+            return {"success": True, "message": "Test bildirimi başarıyla gönderildi!"}
         else:
-            return {"success": False, "message": f"Bildirim gönderilemedi: {result.get('error', 'Bilinmeyen hata')}"}
-    
+            return {"success": False, "message": f"Test bildirimi gönderilemedi: {result.get('error', 'Bilinmeyen hata')}"}
+        
     except Exception as e:
         print(f"Test push notification error: {e}")
         return {"success": False, "message": f"Hata: {str(e)}"}
 
+@app.get("/api/notifications/streak")
+async def get_user_streak(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Kullanıcının streak bilgilerini getir"""
+    try:
+        streak_data = push_service.calculate_user_streak(db, current_user.id)
+        
+        return {
+            "success": True,
+            "streak_data": streak_data,
+            "message": f"Mevcut seriniz: {streak_data['current_streak']} gün"
+        }
+        
+    except Exception as e:
+        print(f"Get streak error: {e}")
+        return {"success": False, "message": f"Streak bilgisi alınamadı: {str(e)}"}
+
+@app.post("/api/notifications/test-streak")
+async def test_streak_warnings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Test streak warning notifications"""
+    try:
+        push_service = PushNotificationService()
+        
+        # Get user's active push tokens
+        push_tokens = db.query(PushToken).filter(
+            PushToken.user_id == current_user.id,
+            PushToken.is_active == 1
+        ).all()
+        
+        if not push_tokens:
+            return {"success": False, "message": "No active push tokens found"}
+        
+        # Send test streak warning
+        for token in push_tokens:
+            push_service.send_push_notification(
+                push_token=token.push_token,
+                title="🔥 Streak Uyarısı",
+                message="Streakini kaybetme! Bugün bir adım tamamla.",
+                data={"type": "streak_warning", "test": True}
+            )
+        
+        return {
+            "success": True,
+            "message": f"Test streak warning sent to {len(push_tokens)} devices"
+        }
+        
+    except Exception as e:
+        print(f"Error sending test streak warning: {e}")
+        return {"success": False, "message": str(e)}
+
+# Premium Subscription Endpoints
+
+class PremiumPurchaseRequest(BaseModel):
+    product_id: str  # premium_monthly, premium_yearly
+    payment_method: str = "test"  # test, stripe, etc.
+
+class PremiumStatusResponse(BaseModel):
+    is_premium: bool
+    subscription_type: str
+    expires_at: Optional[datetime]
+    days_remaining: Optional[int]
+    features: List[str]
+
+# Community Models
+class CommunityPostCreate(BaseModel):
+    title: str
+    content: str
+    skill_name: Optional[str] = None
+    post_type: str = "question"
+
+class CommunityPostResponse(BaseModel):
+    id: int
+    title: str
+    content: str
+    skill_name: Optional[str]
+    post_type: str
+    likes_count: int
+    replies_count: int
+    is_expert_post: bool
+    author_name: str
+    author_id: int
+    is_liked: bool = False
+    created_at: str
+    
+class CommunityReplyCreate(BaseModel):
+    content: str
+
+class CommunityReplyResponse(BaseModel):
+    id: int
+    content: str
+    likes_count: int
+    author_name: str
+    author_id: int
+    is_liked: bool = False
+    created_at: str
+
+class CommunityStatsResponse(BaseModel):
+    total_posts: int
+    total_replies: int
+    active_users: int
+    popular_skills: List[dict]
+
+# Daily Tasks ve Gamification Modelleri
+# Daily Task ve Study Session response modelleri kaldırıldı
+
+class GamificationResponse(BaseModel):
+    total_xp: int
+    current_level: int
+    daily_xp_today: int
+    current_streak: int
+    longest_streak: int
+    level_name: str
+    next_level_xp: int
+    achievements_count: int
+
+class AchievementResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+    icon: str
+    category: str
+    earned_at: Optional[str]
+
+class UserProfileResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    created_at: str
+    subscription_type: str
+    gamification: GamificationResponse
+    achievements: List[AchievementResponse]
+    total_roadmaps: int
+    completed_roadmaps: int
+    total_study_hours: int
+    is_own_profile: bool
+
+# Premium subscription models - removed all complex models
+
+# Premium subscription endpoints - simplified
+@app.get("/api/premium/status")
+async def get_premium_status(current_user: User = Depends(get_current_user)):
+    """Get user's premium subscription status"""
+    try:
+        print(f"🔍 Checking premium status for user: {current_user.email}")
+        
+        is_premium = current_user.subscription_type == "premium"
+        expires_at = current_user.subscription_expires.isoformat() if current_user.subscription_expires else None
+        
+        print(f"✅ Premium status: {is_premium}, expires: {expires_at}")
+        
+        return {
+            "is_premium": is_premium,
+            "subscription_type": current_user.subscription_type or "free",
+            "expires_at": expires_at
+        }
+    except Exception as e:
+        print(f"❌ Error checking premium status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to check premium status")
+
+@app.post("/api/premium/purchase")
+async def purchase_premium(
+    request: PremiumPurchaseRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Process premium subscription purchase"""
+    try:
+        print(f"🛒 Processing premium purchase for user: {current_user.email}")
+        print(f"📦 Product ID: {request.product_id}")
+        
+        # Determine subscription duration
+        if "yearly" in request.product_id.lower():
+            # 1 yıl süre
+            expires_at = datetime.now(timezone.utc) + timedelta(days=365)
+            subscription_type = "premium"
+            print(f"📅 Yearly subscription expires at: {expires_at}")
+        elif "monthly" in request.product_id.lower():
+            # 1 ay süre
+            expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            subscription_type = "premium"
+            print(f"📅 Monthly subscription expires at: {expires_at}")
+        else:
+            # Test satın alma için 1 yıl ver
+            expires_at = datetime.now(timezone.utc) + timedelta(days=365)
+            subscription_type = "premium"
+            print(f"📅 Test subscription expires at: {expires_at}")
+        
+        # User'ı güncelle
+        current_user.subscription_type = subscription_type
+        current_user.subscription_expires = expires_at
+        current_user.updated_at = datetime.now(timezone.utc)
+        
+        db.commit()
+        
+        print(f"✅ Premium subscription activated for user: {current_user.email}")
+        
+        return {
+            "success": True,
+            "message": "Premium abonelik başarıyla aktifleştirildi!",
+            "subscription_type": subscription_type,
+            "expires_at": expires_at.isoformat(),
+            "product_id": request.product_id
+        }
+        
+    except Exception as e:
+        print(f"❌ Premium purchase failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Premium satın alma başarısız")
+
+@app.post("/api/premium/test-upgrade")
+async def test_upgrade_premium(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Test için premium'a upgrade et"""
+    try:
+        # Kullanıcıyı premium'a upgrade et
+        current_user.subscription_type = "premium"
+        current_user.subscription_expires = datetime.now(timezone.utc) + timedelta(days=30)
+        
+        db.commit()
+        db.refresh(current_user)
+        
+        return {
+            "success": True,
+            "message": "Premium upgrade başarılı!",
+            "subscription_type": current_user.subscription_type,
+            "expires_at": current_user.subscription_expires
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"Premium upgrade error: {e}")
+        raise HTTPException(status_code=500, detail="Premium upgrade başarısız")
+
+# Debug endpoint - Kullanıcıları listele
+@app.get("/api/debug/users")
+async def list_users(db: Session = Depends(get_db)):
+    """Debug amaçlı - Tüm kullanıcıları listele"""
+    try:
+        users = db.query(User).all()
+        user_list = []
+        for user in users:
+            user_list.append({
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "full_name": user.full_name,
+                "subscription_type": user.subscription_type,
+                "is_active": user.is_active,
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            })
+        return {"users": user_list, "total": len(user_list)}
+    except Exception as e:
+        print(f"List users error: {e}")
+        raise HTTPException(status_code=500, detail="Kullanıcılar listelenemedi")
+
+# Debug endpoint - Test kullanıcısı oluştur
+@app.post("/api/debug/create-test-user")
+async def create_test_user(db: Session = Depends(get_db)):
+    """Debug amaçlı - Test kullanıcısı oluştur"""
+    try:
+        # Mevcut kullanıcı kontrolü
+        existing_user = get_user_by_email(db, "premium@premium.com")
+        if existing_user:
+            return {"message": "Test kullanıcısı zaten mevcut", "user_id": existing_user.id}
+        
+        # Test kullanıcısı oluştur
+        test_user_data = UserCreate(
+            name="Premium User",
+            email="premium@premium.com",
+            password="premium"
+        )
+        
+        new_user = create_user(db, test_user_data)
+        
+        # Premium yap
+        new_user.subscription_type = "premium"
+        new_user.subscription_expires = datetime.now(timezone.utc) + timedelta(days=365)
+        db.commit()
+        db.refresh(new_user)
+        
+        return {
+            "message": "Test kullanıcısı oluşturuldu",
+            "user_id": new_user.id,
+            "email": new_user.email,
+            "subscription_type": new_user.subscription_type
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"Create test user error: {e}")
+        raise HTTPException(status_code=500, detail="Test kullanıcısı oluşturulamadı")
+
+# Debug endpoint - Bildirim sistemi test
+@app.post("/api/debug/test-notifications")
+async def test_notification_system(db: Session = Depends(get_db)):
+    """Debug amaçlı - Bildirim sistemini test et"""
+    try:
+        # Tüm notification preferences'ları listele
+        preferences = db.query(NotificationPreference).all()
+        
+        # Push token'ları listele
+        push_tokens = db.query(PushToken).filter(PushToken.is_active == 1).all()
+        
+        # Şu anki saat
+        current_time = datetime.now().strftime("%H:%M")
+        
+        return {
+            "current_time": current_time,
+            "total_preferences": len(preferences),
+            "preferences": [
+                {
+                    "user_id": pref.user_id,
+                    "daily_reminder_enabled": pref.daily_reminder_enabled,
+                    "daily_reminder_time": pref.daily_reminder_time
+                } for pref in preferences
+            ],
+            "total_push_tokens": len(push_tokens),
+            "push_tokens": [
+                {
+                    "user_id": token.user_id,
+                    "token_preview": token.push_token[:20] + "..." if token.push_token else None,
+                    "is_active": token.is_active
+                } for token in push_tokens
+            ]
+        }
+    except Exception as e:
+        print(f"Test notification system error: {e}")
+        raise HTTPException(status_code=500, detail="Bildirim sistemi test edilemedi")
+
+# Debug endpoint - Manuel bildirim gönder
+@app.post("/api/debug/send-test-notification")
+async def send_test_notification_debug(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Debug amaçlı - Belirli kullanıcıya test bildirimi gönder"""
+    try:
+        # Kullanıcının push token'ını al
+        push_token = db.query(PushToken).filter(
+            PushToken.user_id == user_id,
+            PushToken.is_active == 1
+        ).order_by(PushToken.updated_at.desc()).first()
+        
+        if not push_token:
+            return {"success": False, "message": f"User {user_id} için push token bulunamadı"}
+        
+        # Test bildirimi gönder
+        result = push_service.send_push_notification(
+            push_token=push_token.push_token,
+            title="Test Bildirimi",
+            message="Bu bir test bildirimidir!",
+            data={"type": "test"}
+        )
+        
+        return {
+            "success": True,
+            "message": "Test bildirimi gönderildi",
+            "user_id": user_id,
+            "push_result": result
+        }
+    except Exception as e:
+        print(f"Send test notification error: {e}")
+        raise HTTPException(status_code=500, detail="Test bildirimi gönderilemedi")
+
+# Debug endpoint - Şifre test
+@app.post("/api/debug/test-password")
+async def test_password(
+    email: str,
+    password: str,
+    db: Session = Depends(get_db)
+):
+    """Debug amaçlı - Şifre doğrulamasını test et"""
+    try:
+        user = get_user_by_email(db, email)
+        if not user:
+            return {"success": False, "message": "Kullanıcı bulunamadı"}
+        
+        # Şifre doğrulaması
+        is_valid = verify_password(password, user.hashed_password)
+        
+        return {
+            "success": True,
+            "email": email,
+            "user_id": user.id,
+            "password_valid": is_valid,
+            "hashed_password_preview": user.hashed_password[:50] + "..." if user.hashed_password else None
+        }
+    except Exception as e:
+        print(f"Test password error: {e}")
+        raise HTTPException(status_code=500, detail="Şifre test edilemedi")
+
+# Debug endpoint - Kullanıcı şifresini sıfırla
+@app.post("/api/debug/reset-user-password")
+async def reset_user_password(
+    email: str,
+    new_password: str,
+    db: Session = Depends(get_db)
+):
+    """Debug amaçlı - Kullanıcının şifresini sıfırla"""
+    try:
+        user = get_user_by_email(db, email)
+        if not user:
+            return {"success": False, "message": "Kullanıcı bulunamadı"}
+        
+        # Yeni şifreyi hash'le ve kaydet
+        user.hashed_password = get_password_hash(new_password)
+        db.commit()
+        db.refresh(user)
+        
+        return {
+            "success": True,
+            "message": "Şifre başarıyla sıfırlandı",
+            "email": email,
+            "user_id": user.id
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"Reset password error: {e}")
+        raise HTTPException(status_code=500, detail="Şifre sıfırlanamadı")
+
+# Community API Endpoints
+@app.get("/api/community/stats", response_model=CommunityStatsResponse)
+async def get_community_stats(db: Session = Depends(get_db)):
+    """Get community statistics"""
+    try:
+        total_posts = db.query(CommunityPost).filter(CommunityPost.is_active == 1).count()
+        total_replies = db.query(CommunityReply).filter(CommunityReply.is_active == 1).count()
+        active_users = db.query(User).filter(User.is_active == 1).count()
+        
+        # Get popular skills from posts
+        popular_skills_query = db.execute(text("""
+            SELECT skill_name, COUNT(*) as post_count, COUNT(DISTINCT user_id) as learner_count
+            FROM community_posts 
+            WHERE skill_name IS NOT NULL AND is_active = 1
+            GROUP BY skill_name 
+            ORDER BY post_count DESC 
+            LIMIT 10
+        """))
+        
+        popular_skills = []
+        for row in popular_skills_query:
+            popular_skills.append({
+                "name": row[0],
+                "post_count": row[1],
+                "learner_count": row[2]
+            })
+        
+        return CommunityStatsResponse(
+            total_posts=total_posts,
+            total_replies=total_replies,
+            active_users=active_users,
+            popular_skills=popular_skills
+        )
+        
+    except Exception as e:
+        print(f"❌ Community stats error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/community/posts", response_model=List[CommunityPostResponse])
+async def get_community_posts(
+    filter_type: str = "all",  # all, my, trending, popular, recent, expert
+    skill_name: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get community posts with filtering"""
+    try:
+        query = db.query(CommunityPost).filter(CommunityPost.is_active == 1)
+        
+        # Apply filters
+        if filter_type == "my":
+            query = query.filter(CommunityPost.user_id == current_user.id)
+        elif filter_type == "expert":
+            query = query.filter(CommunityPost.is_expert_post == 1)
+        elif skill_name:
+            query = query.filter(CommunityPost.skill_name == skill_name)
+            
+        # Apply sorting
+        if filter_type == "trending":
+            query = query.order_by(CommunityPost.likes_count.desc(), CommunityPost.created_at.desc())
+        elif filter_type == "popular":
+            query = query.order_by(CommunityPost.replies_count.desc(), CommunityPost.likes_count.desc())
+        elif filter_type == "recent":
+            query = query.order_by(CommunityPost.created_at.desc())
+        else:  # all or default
+            query = query.order_by(CommunityPost.created_at.desc())
+            
+        posts = query.offset(offset).limit(limit).all()
+        
+        # Get user likes for these posts
+        post_ids = [post.id for post in posts]
+        user_likes = db.query(CommunityLike).filter(
+            CommunityLike.user_id == current_user.id,
+            CommunityLike.post_id.in_(post_ids)
+        ).all()
+        liked_post_ids = {like.post_id for like in user_likes}
+        
+        # Get author names
+        user_ids = [post.user_id for post in posts]
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        user_names = {user.id: user.full_name or user.username for user in users}
+        
+        result = []
+        for post in posts:
+            result.append(CommunityPostResponse(
+                id=post.id,
+                title=post.title,
+                content=post.content,
+                skill_name=post.skill_name,
+                post_type=post.post_type,
+                likes_count=post.likes_count,
+                replies_count=post.replies_count,
+                is_expert_post=bool(post.is_expert_post),
+                author_name=user_names.get(post.user_id, "Anonim"),
+                author_id=post.user_id,
+                is_liked=post.id in liked_post_ids,
+                created_at=post.created_at.isoformat()
+            ))
+            
+        return result
+        
+    except Exception as e:
+        print(f"❌ Get posts error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/community/posts", response_model=CommunityPostResponse)
+async def create_community_post(
+    post_data: CommunityPostCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new community post"""
+    try:
+        # Check if user is premium for unlimited posts
+        now = datetime.now(timezone.utc)
+        is_premium = (current_user.subscription_type == "premium" and 
+                     current_user.subscription_expires and 
+                     current_user.subscription_expires.replace(tzinfo=timezone.utc) > now)
+        
+        if not is_premium:
+            # Check daily post limit for free users (3 posts per day)
+            today = now.date()
+            today_posts = db.query(CommunityPost).filter(
+                CommunityPost.user_id == current_user.id,
+                func.date(CommunityPost.created_at) == today
+            ).count()
+            
+            if today_posts >= 3:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Günlük post limitiniz doldu. Premium üyelik ile sınırsız post atabilirsiniz."
+                )
+        
+        # Create post
+        new_post = CommunityPost(
+            user_id=current_user.id,
+            title=post_data.title,
+            content=post_data.content,
+            skill_name=post_data.skill_name,
+            post_type=post_data.post_type,
+            is_expert_post=1 if current_user.subscription_type == "premium" else 0
+        )
+        
+        db.add(new_post)
+        db.commit()
+        db.refresh(new_post)
+        
+        # Achievement kontrolü yap
+        check_and_award_achievements(db, current_user.id, "community_post", new_post.id)
+        
+        return CommunityPostResponse(
+            id=new_post.id,
+            title=new_post.title,
+            content=new_post.content,
+            skill_name=new_post.skill_name,
+            post_type=new_post.post_type,
+            likes_count=0,
+            replies_count=0,
+            is_expert_post=bool(new_post.is_expert_post),
+            author_name=current_user.full_name or current_user.username,
+            author_id=current_user.id,
+            is_liked=False,
+            created_at=new_post.created_at.isoformat()
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Create post error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/community/posts/{post_id}/like")
+async def toggle_post_like(
+    post_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Toggle like on a community post"""
+    try:
+        # Check if post exists
+        post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post bulunamadı")
+        
+        # Check if user already liked this post
+        existing_like = db.query(CommunityLike).filter(
+            CommunityLike.user_id == current_user.id,
+            CommunityLike.post_id == post_id
+        ).first()
+        
+        if existing_like:
+            # Unlike
+            db.delete(existing_like)
+            post.likes_count = max(0, post.likes_count - 1)
+            is_liked = False
+        else:
+            # Like
+            new_like = CommunityLike(
+                user_id=current_user.id,
+                post_id=post_id
+            )
+            db.add(new_like)
+            post.likes_count += 1
+            is_liked = True
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "is_liked": is_liked,
+            "likes_count": post.likes_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Toggle like error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/community/posts/{post_id}/replies", response_model=List[CommunityReplyResponse])
+async def get_post_replies(
+    post_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get replies for a specific post"""
+    try:
+        replies = db.query(CommunityReply).filter(
+            CommunityReply.post_id == post_id,
+            CommunityReply.is_active == 1
+        ).order_by(CommunityReply.created_at.asc()).all()
+        
+        # Get user likes for these replies
+        reply_ids = [reply.id for reply in replies]
+        user_likes = db.query(CommunityLike).filter(
+            CommunityLike.user_id == current_user.id,
+            CommunityLike.reply_id.in_(reply_ids)
+        ).all()
+        liked_reply_ids = {like.reply_id for like in user_likes}
+        
+        # Get author names
+        user_ids = [reply.user_id for reply in replies]
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        user_names = {user.id: user.full_name or user.username for user in users}
+        
+        result = []
+        for reply in replies:
+            result.append(CommunityReplyResponse(
+                id=reply.id,
+                content=reply.content,
+                likes_count=reply.likes_count,
+                author_name=user_names.get(reply.user_id, "Anonim"),
+                author_id=reply.user_id,
+                is_liked=reply.id in liked_reply_ids,
+                created_at=reply.created_at.isoformat()
+            ))
+            
+        return result
+        
+    except Exception as e:
+        print(f"❌ Get replies error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/community/posts/{post_id}/replies", response_model=CommunityReplyResponse)
+async def create_reply(
+    post_id: int,
+    reply_data: CommunityReplyCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a reply to a community post"""
+    try:
+        # Check if post exists
+        post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post bulunamadı")
+        
+        # Create reply
+        new_reply = CommunityReply(
+            post_id=post_id,
+            user_id=current_user.id,
+            content=reply_data.content
+        )
+        
+        db.add(new_reply)
+        
+        # Update post reply count
+        post.replies_count += 1
+        
+        db.commit()
+        db.refresh(new_reply)
+        
+        # Achievement kontrolü yap
+        check_and_award_achievements(db, current_user.id, "community_reply", new_reply.id)
+        
+        return CommunityReplyResponse(
+            id=new_reply.id,
+            content=new_reply.content,
+            likes_count=0,
+            author_name=current_user.full_name or current_user.username,
+            author_id=current_user.id,
+            is_liked=False,
+            created_at=new_reply.created_at.isoformat()
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Create reply error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/community/replies/{reply_id}/like")
+async def toggle_reply_like(
+    reply_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Toggle like on a community reply"""
+    try:
+        # Check if reply exists
+        reply = db.query(CommunityReply).filter(CommunityReply.id == reply_id).first()
+        if not reply:
+            raise HTTPException(status_code=404, detail="Yorum bulunamadı")
+        
+        # Check if user already liked this reply
+        existing_like = db.query(CommunityLike).filter(
+            CommunityLike.user_id == current_user.id,
+            CommunityLike.reply_id == reply_id
+        ).first()
+        
+        if existing_like:
+            # Unlike
+            db.delete(existing_like)
+            reply.likes_count = max(0, reply.likes_count - 1)
+            is_liked = False
+        else:
+            # Like
+            new_like = CommunityLike(
+                user_id=current_user.id,
+                reply_id=reply_id
+            )
+            db.add(new_like)
+            reply.likes_count += 1
+            is_liked = True
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "is_liked": is_liked,
+            "likes_count": reply.likes_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Toggle reply like error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Removed all other premium endpoints (purchase, cancel, features, webhook)
+
+# ================================
+# GAMİFİCATION API'LERİ (Daily task kaldırıldı)
+# ================================
+
+# Daily task fonksiyonları kaldırıldı
+
+@app.get("/api/user/gamification", response_model=GamificationResponse)
+async def get_user_gamification(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Kullanıcının gamification bilgilerini getir"""
+    
+    # Gamification bilgilerini getir veya oluştur
+    user_game = db.query(UserGamification).filter(
+        UserGamification.user_id == current_user.id
+    ).first()
+    
+    if not user_game:
+        user_game = UserGamification(user_id=current_user.id)
+        db.add(user_game)
+        db.commit()
+    
+    # Seviye isimlerini hesapla
+    level_names = {1: "Beginner", 2: "Intermediate", 3: "Advanced", 4: "Expert"}
+    level_xp_requirements = {1: 500, 2: 2000, 3: 5000, 4: 10000}
+    
+    current_level_name = level_names.get(user_game.current_level, "Master")
+    next_level_xp = level_xp_requirements.get(user_game.current_level + 1, 0)
+    
+    # Kullanıcının rozetlerini say
+    achievements_count = db.query(UserAchievement).filter(
+        UserAchievement.user_id == current_user.id
+    ).count()
+    
+    return GamificationResponse(
+        total_xp=user_game.total_xp,
+        current_level=user_game.current_level,
+        daily_xp_today=user_game.daily_xp_today,
+        current_streak=user_game.current_streak,
+        longest_streak=user_game.longest_streak,
+        level_name=current_level_name,
+        next_level_xp=next_level_xp,
+        achievements_count=achievements_count
+    )
+
+@app.get("/api/user/achievements", response_model=List[AchievementResponse])
+async def get_user_achievements(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Kullanıcının rozetlerini getir"""
+    
+    # Kullanıcının kazandığı rozetler
+    user_achievements = db.query(UserAchievement, Achievement).join(
+        Achievement, UserAchievement.achievement_id == Achievement.id
+    ).filter(
+        UserAchievement.user_id == current_user.id
+    ).all()
+    
+    result = []
+    for user_achievement, achievement in user_achievements:
+        result.append(AchievementResponse(
+            id=achievement.id,
+            name=achievement.name,
+            description=achievement.description or "",
+            icon=achievement.icon or "🏆",
+            category=achievement.category or "general",
+            earned_at=user_achievement.earned_at.isoformat()
+        ))
+    
+    return result
+
+@app.get("/api/user/profile/{user_id}", response_model=UserProfileResponse)
+async def get_user_profile(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Kullanıcı profilini getir (kendi veya başkasının)"""
+    
+    # Profil sahibi kullanıcıyı bul
+    profile_user = db.query(User).filter(User.id == user_id).first()
+    if not profile_user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    
+    # Gamification verilerini getir
+    user_game = db.query(UserGamification).filter(
+        UserGamification.user_id == user_id
+    ).first()
+    
+    if not user_game:
+        # Eğer gamification verisi yoksa default oluştur
+        user_game = UserGamification(user_id=user_id)
+        db.add(user_game)
+        db.commit()
+    
+    # Seviye isimlerini hesapla
+    level_names = {1: "Beginner", 2: "Intermediate", 3: "Advanced", 4: "Expert"}
+    level_xp_requirements = {1: 500, 2: 2000, 3: 5000, 4: 10000}
+    
+    current_level_name = level_names.get(user_game.current_level, "Master")
+    next_level_xp = level_xp_requirements.get(user_game.current_level + 1, 0)
+    
+    # Achievement'ları getir
+    user_achievements = db.query(UserAchievement, Achievement).join(
+        Achievement, UserAchievement.achievement_id == Achievement.id
+    ).filter(
+        UserAchievement.user_id == user_id
+    ).all()
+    
+    achievements = []
+    for user_achievement, achievement in user_achievements:
+        achievements.append(AchievementResponse(
+            id=achievement.id,
+            name=achievement.name,
+            description=achievement.description or "",
+            icon=achievement.icon or "🏆",
+            category=achievement.category or "general",
+            earned_at=user_achievement.earned_at.isoformat()
+        ))
+    
+    # Roadmap istatistikleri
+    total_roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).count()
+    
+    # Tamamlanan roadmap sayısı
+    completed_roadmaps = 0
+    roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).all()
+    
+    total_study_hours = 0
+    for roadmap in roadmaps:
+        steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap.id).all()
+        completed_steps = sum(1 for step in steps if step.is_completed)
+        total_steps = len(steps)
+        
+        if total_steps > 0 and completed_steps == total_steps:
+            completed_roadmaps += 1
+            
+        # Çalışma saatleri hesapla
+        for step in steps:
+            if step.is_completed and step.estimated_hours:
+                total_study_hours += step.estimated_hours
+    
+    # Gamification response oluştur
+    gamification = GamificationResponse(
+        total_xp=user_game.total_xp,
+        current_level=user_game.current_level,
+        daily_xp_today=user_game.daily_xp_today,
+        current_streak=user_game.current_streak,
+        longest_streak=user_game.longest_streak,
+        level_name=current_level_name,
+        next_level_xp=next_level_xp,
+        achievements_count=len(achievements)
+    )
+    
+    return UserProfileResponse(
+        id=profile_user.id,
+        name=profile_user.full_name or profile_user.username,
+        email=profile_user.email if user_id == current_user.id else "",  # Sadece kendi email'ini görsün
+        created_at=profile_user.created_at.isoformat(),
+        subscription_type=profile_user.subscription_type or "free",
+        gamification=gamification,
+        achievements=achievements,
+        total_roadmaps=total_roadmaps,
+        completed_roadmaps=completed_roadmaps,
+        total_study_hours=total_study_hours,
+        is_own_profile=(user_id == current_user.id)
+    )
+
+@app.get("/api/user/profile", response_model=UserProfileResponse)
+async def get_own_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Kendi profilini getir"""
+    return await get_user_profile(current_user.id, current_user, db)
+
+# Daily task endpoint'i kaldırıldı
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="info") 
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 

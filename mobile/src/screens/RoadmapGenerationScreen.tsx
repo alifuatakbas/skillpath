@@ -32,40 +32,13 @@ const RoadmapGenerationScreen = ({ navigation }: { navigation: any }) => {
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const response = await generateRoadmap({
-        skill_name: skillName.trim(),
-        target_weeks: parseInt(targetWeeks) || 8,
-        current_level: currentLevel,
-        daily_hours: parseInt(dailyHours) || 2,
-      });
-
-      if (response.success) {
-        Alert.alert(
-          '🎉 Başarılı!',
-          'Roadmap başarıyla oluşturuldu!',
-          [
-            {
-              text: 'Dashboard\'a Git',
-              onPress: () => navigation.navigate('Dashboard'),
-            },
-            {
-              text: 'Detayları Gör',
-              onPress: () => navigation.navigate('RoadmapDetail', { 
-                roadmapId: response.roadmap_id 
-              }),
-            },
-          ]
-        );
-      }
-    } catch (error: any) {
-      console.error('Roadmap generation error:', error);
-      Alert.alert('Hata', error.message || 'Roadmap oluşturulamadı');
-    } finally {
-      setLoading(false);
-    }
+    // Assessment screen'ine git - AI soruları sorsun
+    navigation.navigate('Assessment', { 
+      skillName: skillName.trim(),
+      targetWeeks: parseInt(targetWeeks) || 8,
+      currentLevel: currentLevel,
+      dailyHours: parseInt(dailyHours) || 2,
+    });
   };
 
   return (

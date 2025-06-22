@@ -26,7 +26,7 @@ interface Props {
 }
 
 export default function AssessmentScreen({ navigation, route }: Props) {
-  const { skillName } = route.params;
+  const { skillName, targetWeeks = 12, currentLevel = 'beginner', dailyHours = 2 } = route.params;
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -91,27 +91,41 @@ export default function AssessmentScreen({ navigation, route }: Props) {
         is_correct: answers[index] === question.correct_answer,
       }));
 
-      // Kullanıcı seviyesini hesapla
-      const userLevel = calculateUserLevel(assessmentResponses);
+      // Kullanıcı seviyesini hesapla (assessment sonuçlarına göre)
+      const assessmentLevel = calculateUserLevel(assessmentResponses);
       
       console.log('Roadmap oluşturma başlıyor...');
       console.log('Skill:', skillName);
-      console.log('User Level:', userLevel);
+      console.log('Assessment Level:', assessmentLevel);
+      console.log('Target Weeks:', targetWeeks);
+      console.log('Daily Hours:', dailyHours);
       
-      // Roadmap oluştur - Yeni format
+      // Roadmap oluştur - Assessment sonuçları ve kullanıcı tercihlerine göre
       const roadmapResponse = await generateRoadmap({
         skill_name: skillName,
-        target_weeks: 12, // Default 12 hafta
-        current_level: userLevel,
-        daily_hours: 2, // Default 2 saat/gün
+        target_weeks: targetWeeks,
+        current_level: assessmentLevel, // Assessment sonucunu kullan
+        daily_hours: dailyHours,
       });
 
       console.log('Roadmap response:', roadmapResponse);
 
-      // Navigate to roadmap screen
-      navigation.navigate('Roadmap', {
-        roadmapId: (roadmapResponse as any).roadmap_id?.toString() || '1',
-      });
+      if (roadmapResponse.success) {
+        Alert.alert(
+          '🎉 Başarılı!',
+          'Kişiselleştirilmiş yol haritanız başarıyla oluşturuldu!',
+          [
+            {
+              text: 'Roadmap\'ı Gör',
+              onPress: () => {
+                navigation.navigate('RoadmapDetail', { 
+                  roadmapId: roadmapResponse.roadmap_id 
+                });
+              },
+            },
+          ]
+        );
+      }
       
     } catch (error: any) {
       console.error('Roadmap oluşturma hatası:', error);
