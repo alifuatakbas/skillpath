@@ -156,11 +156,14 @@ class CommunityPost(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
-    title = Column(String(255), nullable=False)
+    title = Column(String(300), nullable=False)  # varchar(300)
     content = Column(Text, nullable=False)
-    post_type = Column(String(50), default="question")  # question, discussion, tip
-    views = Column(Integer, default=0)
-    likes = Column(Integer, default=0)
+    skill_name = Column(String(100), nullable=True)  # varchar(100)
+    post_type = Column(String(20), nullable=True)  # varchar(20)
+    likes_count = Column(Integer, nullable=True, default=0)  # likes_count
+    replies_count = Column(Integer, nullable=True, default=0)  # replies_count
+    is_expert_post = Column(Integer, nullable=True, default=0)  # int
+    is_active = Column(Integer, nullable=True, default=1)  # int
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -381,7 +384,8 @@ class RoadmapResponse(BaseModel):
 class CommunityPostCreate(BaseModel):
     title: str
     content: str
-    post_type: str = "question"  # question, discussion, tip
+    skill_name: Optional[str] = None
+    post_type: Optional[str] = "question"  # question, discussion, tip
 
 class CommunityPostResponse(BaseModel):
     id: int
@@ -389,10 +393,12 @@ class CommunityPostResponse(BaseModel):
     user_name: str
     title: str
     content: str
-    post_type: str
-    views: int
-    likes: int
-    comment_count: int
+    skill_name: Optional[str] = None
+    post_type: Optional[str] = None
+    likes_count: int = 0
+    replies_count: int = 0  # comment_count yerine replies_count
+    is_expert_post: int = 0
+    is_active: int = 1
     created_at: str
     updated_at: str
 
@@ -1136,36 +1142,36 @@ async def get_community_posts(
     limit: int = 20,
     offset: int = 0,
     post_type: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Topluluk gönderilerini getir"""
+    """Get community posts with pagination and filtering"""
     try:
+        # Join posts with users to get user names
         query = db.query(CommunityPost, User.full_name.label('user_name')).join(
             User, CommunityPost.user_id == User.id
-        )
+        ).filter(CommunityPost.is_active == 1)
         
-        if post_type:
+        # Filter by post type if provided
+        if post_type and post_type != 'all':
             query = query.filter(CommunityPost.post_type == post_type)
             
         posts = query.order_by(CommunityPost.created_at.desc()).offset(offset).limit(limit).all()
         
         result = []
         for post, user_name in posts:
-            # Comment count
-            comment_count = db.query(CommunityComment).filter(
-                CommunityComment.post_id == post.id
-            ).count()
-            
             result.append(CommunityPostResponse(
                 id=post.id,
                 user_id=post.user_id,
                 user_name=user_name,
                 title=post.title,
                 content=post.content,
+                skill_name=post.skill_name,
                 post_type=post.post_type,
-                views=post.views,
-                likes=post.likes,
-                comment_count=comment_count,
+                likes_count=post.likes_count or 0,
+                replies_count=post.replies_count or 0,
+                is_expert_post=post.is_expert_post or 0,
+                is_active=post.is_active or 1,
                 created_at=post.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 updated_at=post.updated_at.strftime("%Y-%m-%d %H:%M:%S")
             ))
@@ -1173,7 +1179,7 @@ async def get_community_posts(
         return result
         
     except Exception as e:
-        print(f"Get posts error: {e}")
+        print(f"Community posts error: {e}")
         raise HTTPException(status_code=500, detail=f"Posts error: {str(e)}")
 
 @app.post("/api/community/posts", response_model=CommunityPostResponse)
@@ -1182,34 +1188,44 @@ async def create_community_post(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Yeni topluluk gönderisi oluştur"""
+    """Create a new community post"""
     try:
         user_id = current_user["sub"]
         
+        # Get user name for response
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Create new post
         new_post = CommunityPost(
             user_id=user_id,
             title=post_data.title,
             content=post_data.content,
-            post_type=post_data.post_type
+            skill_name=post_data.skill_name,
+            post_type=post_data.post_type or "question",
+            likes_count=0,
+            replies_count=0,
+            is_expert_post=0,
+            is_active=1
         )
         
         db.add(new_post)
         db.commit()
         db.refresh(new_post)
         
-        # User name'i getir
-        user = db.query(User).filter(User.id == user_id).first()
-        
         return CommunityPostResponse(
             id=new_post.id,
             user_id=new_post.user_id,
-            user_name=user.full_name if user else "Unknown",
+            user_name=user.full_name,
             title=new_post.title,
             content=new_post.content,
+            skill_name=new_post.skill_name,
             post_type=new_post.post_type,
-            views=new_post.views,
-            likes=new_post.likes,
-            comment_count=0,
+            likes_count=new_post.likes_count or 0,
+            replies_count=new_post.replies_count or 0,
+            is_expert_post=new_post.is_expert_post or 0,
+            is_active=new_post.is_active or 1,
             created_at=new_post.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             updated_at=new_post.updated_at.strftime("%Y-%m-%d %H:%M:%S")
         )
@@ -1297,40 +1313,41 @@ async def like_post(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Gönderiyi beğen/beğenmeden çıkar"""
+    """Like/unlike a community post"""
     try:
         user_id = current_user["sub"]
         
-        # Mevcut like var mı kontrol et
+        # Check if post exists
+        post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        
+        # Check if user already liked this post
         existing_like = db.query(PostLike).filter(
             PostLike.user_id == user_id,
             PostLike.post_id == post_id
         ).first()
         
         if existing_like:
-            # Like varsa kaldır
+            # Unlike - remove the like
             db.delete(existing_like)
-            
-            # Post like sayısını azalt
-            post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
-            if post:
-                post.likes = max(0, post.likes - 1)
-                
-            db.commit()
-            return {"liked": False, "message": "Beğeni kaldırıldı"}
+            liked = False
         else:
-            # Like ekle
+            # Like - add new like
             new_like = PostLike(user_id=user_id, post_id=post_id)
             db.add(new_like)
-            
-            # Post like sayısını artır
-            post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
-            if post:
-                post.likes = post.likes + 1
-                
-            db.commit()
-            return {"liked": True, "message": "Gönderi beğenildi"}
-            
+            liked = True
+        
+        db.commit()
+        
+        # Count total likes for this post
+        total_likes = db.query(PostLike).filter(PostLike.post_id == post_id).count()
+        
+        return {
+            "liked": liked,
+            "total_likes": total_likes
+        }
+        
     except Exception as e:
         print(f"Like post error: {e}")
         raise HTTPException(status_code=500, detail=f"Like error: {str(e)}") 
