@@ -532,13 +532,13 @@ def init_sample_courses(db: Session):
 async def startup_event():
     """Initialize database on startup"""
     # Create all tables
-        Base.metadata.create_all(bind=engine)
-        
-        db = SessionLocal()
-        try:
+    Base.metadata.create_all(bind=engine)
+    
+    db = SessionLocal()
+    try:
         init_sample_courses(db)
-        finally:
-            db.close()
+    finally:
+        db.close()
 
 # API Endpoints
 @app.get("/")
