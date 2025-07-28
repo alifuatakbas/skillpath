@@ -140,14 +140,51 @@ class Course(Base):
     __tablename__ = "courses"
     
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(200), nullable=False)
+    title = Column(String(255), nullable=False)
     description = Column(Text)
-    instructor = Column(String(100), nullable=False)
-    duration = Column(String(50))
-    level = Column(String(20))
+    instructor = Column(String(255))
+    duration = Column(String(100))
+    level = Column(String(50))
     price = Column(Float)
     image_url = Column(String(500))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime, default=func.now())
+
+# Community Tables
+class CommunityPost(Base):
+    __tablename__ = "community_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    post_type = Column(String(50), default="question")  # question, discussion, tip
+    tags = Column(Text)  # JSON string for tags
+    views = Column(Integer, default=0)
+    likes = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+class CommunityComment(Base):
+    __tablename__ = "community_comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    parent_comment_id = Column(Integer, nullable=True)  # For nested replies
+    likes = Column(Integer, default=0)
+    is_accepted = Column(Integer, default=0)  # For accepted answers
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+class PostLike(Base):
+    __tablename__ = "post_likes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    post_id = Column(Integer, nullable=True)
+    comment_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=func.now())
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -335,9 +372,49 @@ class RoadmapRequest(BaseModel):
 
 class RoadmapResponse(BaseModel):
     success: bool
-    roadmap_id: int
-    roadmap: dict
     message: str
+    roadmap_id: Optional[str] = None
+
+# Community Models
+class CommunityPostCreate(BaseModel):
+    title: str
+    content: str
+    post_type: str = "question"  # question, discussion, tip
+    tags: Optional[str] = None
+
+class CommunityPostResponse(BaseModel):
+    id: int
+    user_id: int
+    user_name: str
+    title: str
+    content: str
+    post_type: str
+    tags: Optional[str] = None
+    views: int
+    likes: int
+    comment_count: int
+    created_at: str
+    updated_at: str
+
+class CommunityCommentCreate(BaseModel):
+    content: str
+    parent_comment_id: Optional[int] = None
+
+class CommunityCommentResponse(BaseModel):
+    id: int
+    post_id: int
+    user_id: int
+    user_name: str
+    content: str
+    parent_comment_id: Optional[int] = None
+    likes: int
+    is_accepted: bool
+    created_at: str
+    updated_at: str
+
+class PostLikeRequest(BaseModel):
+    post_id: Optional[int] = None
+    comment_id: Optional[int] = None
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
@@ -803,9 +880,8 @@ async def generate_roadmap_new(
         
         return RoadmapResponse(
             success=True,
-            roadmap_id=new_roadmap.id,
-            roadmap=roadmap_data,
-            message="Kişiselleştirilmiş roadmap başarıyla oluşturuldu!"
+            message="Kişiselleştirilmiş roadmap başarıyla oluşturuldu!",
+            roadmap_id=new_roadmap.id
         )
             
     except Exception as e:
@@ -1038,4 +1114,212 @@ async def get_community_members(db: Session = Depends(get_db)):
         
     except Exception as e:
         print(f"Community members error: {e}")
-        raise HTTPException(status_code=500, detail=f"Community members error: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Community members error: {str(e)}")
+
+# Community Posts API
+@app.get("/api/community/posts", response_model=List[CommunityPostResponse])
+async def get_community_posts(
+    limit: int = 20,
+    offset: int = 0,
+    post_type: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Topluluk gönderilerini getir"""
+    try:
+        query = db.query(CommunityPost, User.name.label('user_name')).join(
+            User, CommunityPost.user_id == User.id
+        )
+        
+        if post_type:
+            query = query.filter(CommunityPost.post_type == post_type)
+            
+        posts = query.order_by(CommunityPost.created_at.desc()).offset(offset).limit(limit).all()
+        
+        result = []
+        for post, user_name in posts:
+            # Comment count
+            comment_count = db.query(CommunityComment).filter(
+                CommunityComment.post_id == post.id
+            ).count()
+            
+            result.append(CommunityPostResponse(
+                id=post.id,
+                user_id=post.user_id,
+                user_name=user_name,
+                title=post.title,
+                content=post.content,
+                post_type=post.post_type,
+                tags=post.tags,
+                views=post.views,
+                likes=post.likes,
+                comment_count=comment_count,
+                created_at=post.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                updated_at=post.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            ))
+            
+        return result
+        
+    except Exception as e:
+        print(f"Get posts error: {e}")
+        raise HTTPException(status_code=500, detail=f"Posts error: {str(e)}")
+
+@app.post("/api/community/posts", response_model=CommunityPostResponse)
+async def create_community_post(
+    post_data: CommunityPostCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Yeni topluluk gönderisi oluştur"""
+    try:
+        user_id = current_user["sub"]
+        
+        new_post = CommunityPost(
+            user_id=user_id,
+            title=post_data.title,
+            content=post_data.content,
+            post_type=post_data.post_type,
+            tags=post_data.tags
+        )
+        
+        db.add(new_post)
+        db.commit()
+        db.refresh(new_post)
+        
+        # User name'i getir
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        return CommunityPostResponse(
+            id=new_post.id,
+            user_id=new_post.user_id,
+            user_name=user.name if user else "Unknown",
+            title=new_post.title,
+            content=new_post.content,
+            post_type=new_post.post_type,
+            tags=new_post.tags,
+            views=new_post.views,
+            likes=new_post.likes,
+            comment_count=0,
+            created_at=new_post.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            updated_at=new_post.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        
+    except Exception as e:
+        print(f"Create post error: {e}")
+        raise HTTPException(status_code=500, detail=f"Create post error: {str(e)}")
+
+@app.get("/api/community/posts/{post_id}/comments", response_model=List[CommunityCommentResponse])
+async def get_post_comments(post_id: int, db: Session = Depends(get_db)):
+    """Bir gönderinin yorumlarını getir"""
+    try:
+        comments = db.query(CommunityComment, User.name.label('user_name')).join(
+            User, CommunityComment.user_id == User.id
+        ).filter(
+            CommunityComment.post_id == post_id
+        ).order_by(CommunityComment.created_at.asc()).all()
+        
+        result = []
+        for comment, user_name in comments:
+            result.append(CommunityCommentResponse(
+                id=comment.id,
+                post_id=comment.post_id,
+                user_id=comment.user_id,
+                user_name=user_name,
+                content=comment.content,
+                parent_comment_id=comment.parent_comment_id,
+                likes=comment.likes,
+                is_accepted=bool(comment.is_accepted),
+                created_at=comment.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                updated_at=comment.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+            ))
+            
+        return result
+        
+    except Exception as e:
+        print(f"Get comments error: {e}")
+        raise HTTPException(status_code=500, detail=f"Comments error: {str(e)}")
+
+@app.post("/api/community/posts/{post_id}/comments", response_model=CommunityCommentResponse)
+async def create_comment(
+    post_id: int,
+    comment_data: CommunityCommentCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Gönderiye yorum ekle"""
+    try:
+        user_id = current_user["sub"]
+        
+        new_comment = CommunityComment(
+            post_id=post_id,
+            user_id=user_id,
+            content=comment_data.content,
+            parent_comment_id=comment_data.parent_comment_id
+        )
+        
+        db.add(new_comment)
+        db.commit()
+        db.refresh(new_comment)
+        
+        # User name'i getir
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        return CommunityCommentResponse(
+            id=new_comment.id,
+            post_id=new_comment.post_id,
+            user_id=new_comment.user_id,
+            user_name=user.name if user else "Unknown",
+            content=new_comment.content,
+            parent_comment_id=new_comment.parent_comment_id,
+            likes=new_comment.likes,
+            is_accepted=bool(new_comment.is_accepted),
+            created_at=new_comment.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            updated_at=new_comment.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        
+    except Exception as e:
+        print(f"Create comment error: {e}")
+        raise HTTPException(status_code=500, detail=f"Create comment error: {str(e)}")
+
+@app.post("/api/community/posts/{post_id}/like")
+async def like_post(
+    post_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Gönderiyi beğen/beğenmeden çıkar"""
+    try:
+        user_id = current_user["sub"]
+        
+        # Mevcut like var mı kontrol et
+        existing_like = db.query(PostLike).filter(
+            PostLike.user_id == user_id,
+            PostLike.post_id == post_id
+        ).first()
+        
+        if existing_like:
+            # Like varsa kaldır
+            db.delete(existing_like)
+            
+            # Post like sayısını azalt
+            post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
+            if post:
+                post.likes = max(0, post.likes - 1)
+                
+            db.commit()
+            return {"liked": False, "message": "Beğeni kaldırıldı"}
+        else:
+            # Like ekle
+            new_like = PostLike(user_id=user_id, post_id=post_id)
+            db.add(new_like)
+            
+            # Post like sayısını artır
+            post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
+            if post:
+                post.likes = post.likes + 1
+                
+            db.commit()
+            return {"liked": True, "message": "Gönderi beğenildi"}
+            
+    except Exception as e:
+        print(f"Like post error: {e}")
+        raise HTTPException(status_code=500, detail=f"Like error: {str(e)}") 
