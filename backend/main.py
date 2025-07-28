@@ -984,14 +984,14 @@ async def get_dashboard_stats(current_user: User = Depends(get_current_user), db
         completed_roadmaps = 0  # Şimdilik 0, karmaşık sorgu gerekiyor
         
         # Toplam step sayısı
-        total_steps = db.query(RoadmapStep).join(Roadmap).filter(
+        total_steps = db.query(RoadmapStep).join(Roadmap, RoadmapStep.roadmap_id == Roadmap.id).filter(
             Roadmap.user_id == user_id
         ).count()
         
         # Tamamlanan step sayısı
         completed_steps = db.query(UserProgress).filter(
             UserProgress.user_id == user_id,
-            UserProgress.completed == True
+            UserProgress.status == "completed"
         ).count()
         
         # Tamamlanma yüzdesi
@@ -1037,7 +1037,7 @@ async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: 
             completed_steps = db.query(UserProgress).filter(
                 UserProgress.user_id == user_id,
                 UserProgress.roadmap_id == roadmap.id,
-                UserProgress.completed == True
+                UserProgress.status == "completed"
             ).count()
             
             progress = (completed_steps / max(total_steps, 1)) * 100 if total_steps > 0 else 0
