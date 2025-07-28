@@ -24,6 +24,7 @@ import CommunityScreen from './src/screens/CommunityScreen';
 import MyCommunityScreen from './src/screens/MyCommunityScreen';
 import ExploreScreen from './src/screens/ExploreScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import CreatePostScreen from './src/screens/CreatePostScreen'; // Yeni eklendi
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -113,6 +114,7 @@ export default function App() {
           <Stack.Screen name="MyCommunity" component={MyCommunityScreen} />
           <Stack.Screen name="Explore" component={ExploreScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="CreatePost" component={CreatePostScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </PremiumProvider>

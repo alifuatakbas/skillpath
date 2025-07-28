@@ -10,9 +10,8 @@ export interface AppConfig {
 // 🚀 PRODUCTION (Railway URL)
 const PRODUCTION_URL = 'https://skillpath-production.up.railway.app';
 
-// 📱 Development ve Production URL'lerini ayır
-const isDevelopment = process.env.NODE_ENV === 'development';
-const CURRENT_API_URL = isDevelopment ? 'http://localhost:8000' : PRODUCTION_URL;
+// 📱 Her zaman Railway URL kullan (local backend yok)
+const CURRENT_API_URL = PRODUCTION_URL;
 
 export const AppConfig: AppConfig = {
   API_BASE_URL: CURRENT_API_URL,

@@ -26,6 +26,9 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
         getUserRoadmaps()
       ]);
       
+      console.log('Dashboard stats:', dashboardStats);
+      console.log('User roadmaps:', userRoadmaps);
+      
       setStats(dashboardStats);
       setRoadmaps(userRoadmaps);
     } catch (error) {

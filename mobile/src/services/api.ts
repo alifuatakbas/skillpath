@@ -273,8 +273,8 @@ export const getCommunityPosts = async (
 export const createCommunityPost = async (postData: {
   title: string;
   content: string;
+  skill_name?: string;  // Backend'te skill_name var
   post_type?: string;
-  tags?: string;
 }): Promise<any> => {
   return apiClient.post<any>('/api/community/posts', postData);
 };

@@ -28,4 +28,5 @@ export type RootStackParamList = {
   Community: undefined;
   MyCommunity: undefined;
   Explore: undefined;
+  CreatePost: undefined; // Yeni eklendi
 }; 
