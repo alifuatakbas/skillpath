@@ -1142,7 +1142,7 @@ async def get_community_posts(
     limit: int = 20,
     offset: int = 0,
     post_type: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),  # dict -> User
     db: Session = Depends(get_db)
 ):
     """Get community posts with pagination and filtering"""
@@ -1185,17 +1185,12 @@ async def get_community_posts(
 @app.post("/api/community/posts", response_model=CommunityPostResponse)
 async def create_community_post(
     post_data: CommunityPostCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),  # dict -> User
     db: Session = Depends(get_db)
 ):
     """Create a new community post"""
     try:
-        user_id = current_user["sub"]
-        
-        # Get user name for response
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+        user_id = current_user.id  # .id kullan
         
         # Create new post
         new_post = CommunityPost(
@@ -1217,7 +1212,7 @@ async def create_community_post(
         return CommunityPostResponse(
             id=new_post.id,
             user_id=new_post.user_id,
-            user_name=user.full_name,
+            user_name=current_user.full_name,  # current_user.full_name kullan
             title=new_post.title,
             content=new_post.content,
             skill_name=new_post.skill_name,
@@ -1269,12 +1264,12 @@ async def get_post_comments(post_id: int, db: Session = Depends(get_db)):
 async def create_comment(
     post_id: int,
     comment_data: CommunityCommentCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),  # dict -> User
     db: Session = Depends(get_db)
 ):
     """Gönderiye yorum ekle"""
     try:
-        user_id = current_user["sub"]
+        user_id = current_user.id  # .id kullan
         
         new_comment = CommunityComment(
             post_id=post_id,
@@ -1287,14 +1282,11 @@ async def create_comment(
         db.commit()
         db.refresh(new_comment)
         
-        # User name'i getir
-        user = db.query(User).filter(User.id == user_id).first()
-        
         return CommunityCommentResponse(
             id=new_comment.id,
             post_id=new_comment.post_id,
             user_id=new_comment.user_id,
-            user_name=user.full_name if user else "Unknown",
+            user_name=current_user.full_name,  # current_user.full_name kullan
             content=new_comment.content,
             parent_comment_id=new_comment.parent_comment_id,
             likes=new_comment.likes,
@@ -1310,12 +1302,12 @@ async def create_comment(
 @app.post("/api/community/posts/{post_id}/like")
 async def like_post(
     post_id: int,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),  # dict -> User
     db: Session = Depends(get_db)
 ):
     """Like/unlike a community post"""
     try:
-        user_id = current_user["sub"]
+        user_id = current_user.id  # .id kullan
         
         # Check if post exists
         post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
