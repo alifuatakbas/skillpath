@@ -910,11 +910,15 @@ async def get_roadmap(
 ):
     """Kullanıcının roadmap detaylarını getir"""
     try:
+        print(f"Getting roadmap {roadmap_id} for user {current_user.id}")
+        
         # Roadmap'i kullanıcıya ait olup olmadığını kontrol et
         roadmap = db.query(Roadmap).filter(
             Roadmap.id == roadmap_id,
             Roadmap.user_id == current_user.id
         ).first()
+        
+        print(f"Roadmap found: {roadmap is not None}")
         
         if not roadmap:
             raise HTTPException(status_code=404, detail="Roadmap bulunamadı")
@@ -924,9 +928,6 @@ async def get_roadmap(
             RoadmapStep.roadmap_id == roadmap_id
         ).order_by(RoadmapStep.step_order).all()
         
-        # JSON formatında roadmap verisini parse et
-        roadmap_data = json.loads(roadmap.roadmap_data) if roadmap.roadmap_data else {}
-        
         # Response formatını düzenle
         steps_data = []
         for step in steps:
@@ -934,25 +935,25 @@ async def get_roadmap(
             step_prerequisites = json.loads(step.prerequisites) if step.prerequisites else []
             
             steps_data.append({
+                "id": step.id,
                 "step_order": step.step_order,
                 "title": step.title,
                 "description": step.description,
-                "estimated_hours": step.estimated_hours,
+                "estimated_hours": step.estimated_hours or 0,
                 "resources": step_resources,
                 "projects": step_prerequisites,  # Prerequisites'ı projeler olarak kullan
                 "is_completed": bool(step.is_completed)
             })
         
         return {
-            "success": True,
             "roadmap": {
                 "id": roadmap.id,
                 "title": roadmap.title,
-                "description": roadmap.description,
-                "total_weeks": roadmap.total_weeks,
-                "difficulty_level": roadmap.difficulty_level,
+                "description": roadmap.description or "",
+                "total_weeks": roadmap.total_weeks or 12,
+                "difficulty_level": roadmap.difficulty_level or "beginner",
                 "steps": steps_data,
-                "created_at": roadmap.created_at.isoformat()
+                "created_at": roadmap.created_at.isoformat() if roadmap.created_at else None
             }
         }
         
@@ -1026,7 +1027,10 @@ async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: 
     try:
         user_id = current_user.id  # .id kullan
         
+        print(f"Getting roadmaps for user_id: {user_id}")
         roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).all()
+        print(f"Found {len(roadmaps)} roadmaps for user {user_id}")
+        
         result = []
         
         for roadmap in roadmaps:
