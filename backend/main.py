@@ -87,6 +87,7 @@ class UserSkillAssessment(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
     skill_id = Column(Integer, nullable=False)
+    skill_name = Column(String(255), nullable=True)  # Skill adını sakla
     current_level = Column(String(20))  # beginner, intermediate, advanced
     target_level = Column(String(20))
     target_duration_weeks = Column(Integer)
@@ -1053,17 +1054,17 @@ async def get_community_stats(db: Session = Depends(get_db)):
         # Toplam roadmap sayısı
         total_roadmaps = db.query(Roadmap).count()
         
-        # En popüler skill'ler
-        popular_skills = db.query(
-            UserSkillAssessment.skill_name,
-            func.count(UserSkillAssessment.id).label('count')
-        ).group_by(UserSkillAssessment.skill_name).order_by(
-            func.count(UserSkillAssessment.id).desc()
+        # En popüler skill'ler - Roadmap title'larından çek
+        popular_roadmaps = db.query(
+            Roadmap.title,
+            func.count(Roadmap.id).label('count')
+        ).group_by(Roadmap.title).order_by(
+            func.count(Roadmap.id).desc()
         ).limit(5).all()
         
         top_skills = [
-            {"name": skill.skill_name, "learners": skill.count}
-            for skill in popular_skills
+            {"name": roadmap.title.split()[0], "learners": roadmap.count}
+            for roadmap in popular_roadmaps
         ]
         
         return {
