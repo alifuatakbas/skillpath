@@ -1045,10 +1045,14 @@ async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: 
             result.append({
                 "id": roadmap.id,
                 "title": roadmap.title,
-                "progress": int(progress),
-                "totalSteps": total_steps,
-                "completedSteps": completed_steps,
-                "lastActivity": roadmap.updated_at.strftime("%Y-%m-%d") if roadmap.updated_at else None
+                "description": roadmap.description or "",
+                "difficulty_level": roadmap.difficulty_level or "beginner",
+                "completion_percentage": int(progress),
+                "total_steps": total_steps,
+                "completed_steps": completed_steps,
+                "total_weeks": roadmap.total_weeks or 12,
+                "created_at": roadmap.created_at.isoformat() if roadmap.created_at else None,
+                "updated_at": roadmap.updated_at.isoformat() if roadmap.updated_at else None
             })
             
         return result
