@@ -51,11 +51,13 @@ export interface ApiError {
 // Base URL belirleme - ortama göre
 function getBaseURL(): string {
   if (typeof window !== 'undefined') {
-    // Browser ortamı (Next.js)
-    return 'http://localhost:8000';
+    // Browser ortamı (Next.js) - Development vs Production
+    return process.env.NODE_ENV === 'production' 
+      ? 'https://skillpath-production.up.railway.app'
+      : 'http://localhost:8000';
   } else {
-    // React Native ortamı
-    return 'http://192.168.1.133:8000';
+    // React Native ortamı - Production URL kullan
+    return 'https://skillpath-production.up.railway.app';
   }
 }
 
