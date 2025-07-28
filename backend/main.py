@@ -440,16 +440,16 @@ def init_sample_courses(db: Session):
         
         for course in sample_courses:
             db.add(course)
-        db.commit()
+            db.commit()
 
 # Initialize database with sample data
 @app.on_event("startup")
 async def startup_event():
-    db = SessionLocal()
-    try:
+        db = SessionLocal()
+        try:
         init_sample_courses(db)
-    finally:
-        db.close()
+        finally:
+            db.close()
 
 # API Endpoints
 @app.get("/")
@@ -627,18 +627,18 @@ async def generate_assessment(request: AssessmentRequest):
             Kullanıcının mevcut seviyesini ve ihtiyaçlarını anlamak için 3-5 soru oluştur.
             
             JSON formatında döndür:
-            {{
-                "questions": [
-                    {{
+{{
+  "questions": [
+    {{
                         "question": "Soru metni",
                         "options": ["Seçenek 1", "Seçenek 2", "Seçenek 3", "Seçenek 4"],
-                        "question_type": "multiple_choice"
+      "question_type": "multiple_choice"
                     }}
-                ]
-            }}
+  ]
+}}
             
             Türkçe sorular oluştur.
-            """
+"""
             
             response = openai_client.chat.completions.create(
                 model="gpt-3.5-turbo",
@@ -740,25 +740,25 @@ async def generate_roadmap_new(
             - Yapılacak projeler
             
             JSON formatında döndür:
-            {{
-                "roadmap": {{
+{{
+    "roadmap": {{
                     "title": "Roadmap başlığı",
-                    "total_weeks": {target_weeks},
-                    "steps": [
-                        {{
-                            "step_order": 1,
+        "total_weeks": {target_weeks},
+        "steps": [
+            {{
+                "step_order": 1,
                             "title": "Adım başlığı",
                             "description": "Detaylı açıklama",
                             "estimated_hours": 20,
                             "resources": ["Kaynak 1", "Kaynak 2"],
                             "projects": ["Proje 1", "Proje 2"]
-                        }}
-                    ]
-                }}
             }}
-            
+        ]
+    }}
+}}
+
             Türkçe oluştur.
-            """
+"""
             
             response = openai_client.chat.completions.create(
                 model="gpt-4",
@@ -873,4 +873,169 @@ async def get_roadmap(
         raise HTTPException(status_code=500, detail="Roadmap getirilemedi")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info") 
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# Dashboard & Analytics Endpoints
+@app.get("/api/user/dashboard")
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Kullanıcının dashboard istatistiklerini döndür"""
+    try:
+        user_id = current_user["sub"]
+        
+        # Kullanıcının roadmap sayısı
+        total_roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).count()
+        
+        # Tamamlanan step sayısı
+        completed_steps = db.query(UserProgress).filter(
+            UserProgress.user_id == user_id,
+            UserProgress.completed == True
+        ).count()
+        
+        # Öğrenilen skill sayısı
+        skills_learned = db.query(UserSkillAssessment).filter(
+            UserSkillAssessment.user_id == user_id
+        ).count()
+        
+        # Haftalık progress hesapla (son 7 gün)
+        from datetime import datetime, timedelta
+        week_ago = datetime.now() - timedelta(days=7)
+        weekly_completed = db.query(UserProgress).filter(
+            UserProgress.user_id == user_id,
+            UserProgress.updated_at >= week_ago,
+            UserProgress.completed == True
+        ).count()
+        
+        total_steps = db.query(RoadmapStep).join(Roadmap).filter(
+            Roadmap.user_id == user_id
+        ).count()
+        
+        weekly_progress = (weekly_completed / max(total_steps, 1)) * 100 if total_steps > 0 else 0
+        
+        return {
+            "totalRoadmaps": total_roadmaps,
+            "completedSteps": completed_steps,
+            "skillsLearned": skills_learned,
+            "weeklyProgress": min(100, int(weekly_progress))
+        }
+        
+    except Exception as e:
+        print(f"Dashboard error: {e}")
+        raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
+
+@app.get("/api/user/roadmaps")
+async def get_user_roadmaps(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Kullanıcının roadmap'lerini döndür"""
+    try:
+        user_id = current_user["sub"]
+        
+        roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).all()
+        result = []
+        
+        for roadmap in roadmaps:
+            # Bu roadmap'in step'lerini say
+            total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap.id).count()
+            
+            # Tamamlanan step'leri say
+            completed_steps = db.query(UserProgress).filter(
+                UserProgress.user_id == user_id,
+                UserProgress.roadmap_id == roadmap.id,
+                UserProgress.completed == True
+            ).count()
+            
+            progress = (completed_steps / max(total_steps, 1)) * 100 if total_steps > 0 else 0
+            
+            result.append({
+                "id": roadmap.id,
+                "title": roadmap.title,
+                "progress": int(progress),
+                "totalSteps": total_steps,
+                "completedSteps": completed_steps,
+                "lastActivity": roadmap.updated_at.strftime("%Y-%m-%d") if roadmap.updated_at else None
+            })
+            
+        return result
+        
+    except Exception as e:
+        print(f"User roadmaps error: {e}")
+        raise HTTPException(status_code=500, detail=f"User roadmaps error: {str(e)}")
+
+@app.get("/api/community/stats")
+async def get_community_stats(db: Session = Depends(get_db)):
+    """Topluluk istatistiklerini döndür"""
+    try:
+        # Toplam kullanıcı sayısı
+        total_members = db.query(User).count()
+        
+        # Bugün aktif olan kullanıcılar (bugün progress kaydı olanlar)
+        from datetime import datetime
+        today = datetime.now().date()
+        active_today = db.query(UserProgress).filter(
+            func.date(UserProgress.updated_at) == today
+        ).distinct(UserProgress.user_id).count()
+        
+        # Toplam roadmap sayısı
+        total_roadmaps = db.query(Roadmap).count()
+        
+        # En popüler skill'ler
+        popular_skills = db.query(
+            UserSkillAssessment.skill_name,
+            func.count(UserSkillAssessment.id).label('count')
+        ).group_by(UserSkillAssessment.skill_name).order_by(
+            func.count(UserSkillAssessment.id).desc()
+        ).limit(5).all()
+        
+        top_skills = [
+            {"name": skill.skill_name, "learners": skill.count}
+            for skill in popular_skills
+        ]
+        
+        return {
+            "totalMembers": total_members,
+            "activeToday": active_today,
+            "totalRoadmaps": total_roadmaps,
+            "topSkills": top_skills
+        }
+        
+    except Exception as e:
+        print(f"Community stats error: {e}")
+        raise HTTPException(status_code=500, detail=f"Community stats error: {str(e)}")
+
+@app.get("/api/community/members")
+async def get_community_members(db: Session = Depends(get_db)):
+    """Aktif topluluk üyelerini döndür"""
+    try:
+        # En aktif kullanıcıları getir (en çok tamamlanan step'e sahip olanlar)
+        members = db.query(
+            User.id,
+            User.name,
+            User.email,
+            func.count(UserProgress.id).label('completed_steps')
+        ).join(UserProgress, User.id == UserProgress.user_id, isouter=True).group_by(
+            User.id
+        ).order_by(
+            func.count(UserProgress.id).desc()
+        ).limit(10).all()
+        
+        result = []
+        for member in members:
+            # Level belirleme
+            completed = member.completed_steps or 0
+            if completed >= 50:
+                level = "Advanced"
+            elif completed >= 20:
+                level = "Intermediate"
+            else:
+                level = "Beginner"
+                
+            result.append({
+                "id": member.id,
+                "name": member.name,
+                "level": level,
+                "points": completed * 10  # Her step 10 puan
+            })
+            
+        return {"members": result}
+        
+    except Exception as e:
+        print(f"Community members error: {e}")
+        raise HTTPException(status_code=500, detail=f"Community members error: {str(e)}") 
