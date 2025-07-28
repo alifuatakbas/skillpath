@@ -328,14 +328,15 @@ class UserCreate(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    name: str  # This will map to full_name
+    name: str  # Mobile app "name" bekliyor
+    username: str
     email: str
-    created_at: datetime
+    is_active: bool
 
 class AuthResponse(BaseModel):
     access_token: str
     token_type: str
-    user: dict  # Dictionary olarak değiştir
+    user: dict  # Mobile app User interface ile uyumlu
 
 # Yeni AI destekli modeller
 class SkillSuggestionRequest(BaseModel):
@@ -373,8 +374,9 @@ class RoadmapRequest(BaseModel):
 
 class RoadmapResponse(BaseModel):
     success: bool
+    roadmap_id: int
+    roadmap: dict
     message: str
-    roadmap_id: Optional[str] = None
 
 # Community Models
 class CommunityPostCreate(BaseModel):
@@ -553,8 +555,9 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return UserResponse(
         id=current_user.id,
         name=current_user.full_name,
+        username=current_user.username,
         email=current_user.email,
-        created_at=current_user.created_at
+        is_active=bool(current_user.is_active)
     )
 
 @app.post("/api/auth/login", response_model=AuthResponse)
@@ -882,8 +885,9 @@ async def generate_roadmap_new(
         
         return RoadmapResponse(
             success=True,
-            message="Kişiselleştirilmiş roadmap başarıyla oluşturuldu!",
-            roadmap_id=new_roadmap.id
+            roadmap_id=new_roadmap.id,
+            roadmap=roadmap_data,
+            message="Kişiselleştirilmiş roadmap başarıyla oluşturuldu!"
         )
             
     except Exception as e:
@@ -963,37 +967,45 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user), db
         # Kullanıcının roadmap sayısı
         total_roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).count()
         
+        # Aktif roadmap sayısı (en az 1 step tamamlanmamış)
+        active_roadmaps = db.query(Roadmap).filter(
+            Roadmap.user_id == user_id
+        ).count()  # Basit yaklaşım: tüm roadmap'ler aktif
+        
+        # Tamamlanan roadmap sayısı (tüm step'leri tamamlanmış)
+        completed_roadmaps = 0  # Şimdilik 0, karmaşık sorgu gerekiyor
+        
+        # Toplam step sayısı
+        total_steps = db.query(RoadmapStep).join(Roadmap).filter(
+            Roadmap.user_id == user_id
+        ).count()
+        
         # Tamamlanan step sayısı
         completed_steps = db.query(UserProgress).filter(
             UserProgress.user_id == user_id,
             UserProgress.completed == True
         ).count()
         
-        # Öğrenilen skill sayısı
-        skills_learned = db.query(UserSkillAssessment).filter(
-            UserSkillAssessment.user_id == user_id
-        ).count()
+        # Tamamlanma yüzdesi
+        completion_percentage = int((completed_steps / max(total_steps, 1)) * 100) if total_steps > 0 else 0
         
-        # Haftalık progress hesapla (son 7 gün)
-        from datetime import datetime, timedelta
-        week_ago = datetime.now() - timedelta(days=7)
-        weekly_completed = db.query(UserProgress).filter(
-            UserProgress.user_id == user_id,
-            UserProgress.updated_at >= week_ago,
-            UserProgress.completed == True
-        ).count()
+        # Öğrenme saatleri (basit hesaplama)
+        total_learning_hours = completed_steps * 2  # Her step 2 saat varsayımı
         
-        total_steps = db.query(RoadmapStep).join(Roadmap).filter(
-            Roadmap.user_id == user_id
-        ).count()
-        
-        weekly_progress = (weekly_completed / max(total_steps, 1)) * 100 if total_steps > 0 else 0
+        # Streak hesaplama (şimdilik basit)
+        current_streak = 5  # Mock data
+        longest_streak = 12  # Mock data
         
         return {
-            "totalRoadmaps": total_roadmaps,
-            "completedSteps": completed_steps,
-            "skillsLearned": skills_learned,
-            "weeklyProgress": min(100, int(weekly_progress))
+            "total_roadmaps": total_roadmaps,
+            "active_roadmaps": active_roadmaps,
+            "completed_roadmaps": completed_roadmaps,
+            "total_steps": total_steps,
+            "completed_steps": completed_steps,
+            "completion_percentage": completion_percentage,
+            "total_learning_hours": total_learning_hours,
+            "current_streak": current_streak,
+            "longest_streak": longest_streak
         }
         
     except Exception as e:
@@ -1085,7 +1097,7 @@ async def get_community_members(db: Session = Depends(get_db)):
         # En aktif kullanıcıları getir (en çok tamamlanan step'e sahip olanlar)
         members = db.query(
             User.id,
-            User.name,
+            User.full_name,
             User.email,
             func.count(UserProgress.id).label('completed_steps')
         ).join(UserProgress, User.id == UserProgress.user_id, isouter=True).group_by(
@@ -1107,7 +1119,7 @@ async def get_community_members(db: Session = Depends(get_db)):
                 
             result.append({
                 "id": member.id,
-                "name": member.name,
+                "name": member.full_name,
                 "level": level,
                 "points": completed * 10  # Her step 10 puan
             })
@@ -1128,7 +1140,7 @@ async def get_community_posts(
 ):
     """Topluluk gönderilerini getir"""
     try:
-        query = db.query(CommunityPost, User.name.label('user_name')).join(
+        query = db.query(CommunityPost, User.full_name.label('user_name')).join(
             User, CommunityPost.user_id == User.id
         )
         
@@ -1193,7 +1205,7 @@ async def create_community_post(
         return CommunityPostResponse(
             id=new_post.id,
             user_id=new_post.user_id,
-            user_name=user.name if user else "Unknown",
+            user_name=user.full_name if user else "Unknown",
             title=new_post.title,
             content=new_post.content,
             post_type=new_post.post_type,
@@ -1213,7 +1225,7 @@ async def create_community_post(
 async def get_post_comments(post_id: int, db: Session = Depends(get_db)):
     """Bir gönderinin yorumlarını getir"""
     try:
-        comments = db.query(CommunityComment, User.name.label('user_name')).join(
+        comments = db.query(CommunityComment, User.full_name.label('user_name')).join(
             User, CommunityComment.user_id == User.id
         ).filter(
             CommunityComment.post_id == post_id
@@ -1269,7 +1281,7 @@ async def create_comment(
             id=new_comment.id,
             post_id=new_comment.post_id,
             user_id=new_comment.user_id,
-            user_name=user.name if user else "Unknown",
+            user_name=user.full_name if user else "Unknown",
             content=new_comment.content,
             parent_comment_id=new_comment.parent_comment_id,
             likes=new_comment.likes,
