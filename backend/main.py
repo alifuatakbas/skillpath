@@ -522,11 +522,12 @@ def init_sample_courses(db: Session):
 # Initialize database with sample data
 @app.on_event("startup")
 async def startup_event():
-        db = SessionLocal()
-        try:
+    """Initialize database on startup"""
+    db = SessionLocal()
+    try:
         init_sample_courses(db)
-        finally:
-            db.close()
+    finally:
+        db.close()
 
 # API Endpoints
 @app.get("/")
