@@ -159,7 +159,6 @@ class CommunityPost(Base):
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
     post_type = Column(String(50), default="question")  # question, discussion, tip
-    tags = Column(Text)  # JSON string for tags
     views = Column(Integer, default=0)
     likes = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
@@ -383,7 +382,6 @@ class CommunityPostCreate(BaseModel):
     title: str
     content: str
     post_type: str = "question"  # question, discussion, tip
-    tags: Optional[str] = None
 
 class CommunityPostResponse(BaseModel):
     id: int
@@ -392,7 +390,6 @@ class CommunityPostResponse(BaseModel):
     title: str
     content: str
     post_type: str
-    tags: Optional[str] = None
     views: int
     likes: int
     comment_count: int
@@ -526,6 +523,9 @@ def init_sample_courses(db: Session):
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
+    
     db = SessionLocal()
     try:
         init_sample_courses(db)
@@ -1163,7 +1163,6 @@ async def get_community_posts(
                 title=post.title,
                 content=post.content,
                 post_type=post.post_type,
-                tags=post.tags,
                 views=post.views,
                 likes=post.likes,
                 comment_count=comment_count,
@@ -1191,8 +1190,7 @@ async def create_community_post(
             user_id=user_id,
             title=post_data.title,
             content=post_data.content,
-            post_type=post_data.post_type,
-            tags=post_data.tags
+            post_type=post_data.post_type
         )
         
         db.add(new_post)
@@ -1209,7 +1207,6 @@ async def create_community_post(
             title=new_post.title,
             content=new_post.content,
             post_type=new_post.post_type,
-            tags=new_post.tags,
             views=new_post.views,
             likes=new_post.likes,
             comment_count=0,
