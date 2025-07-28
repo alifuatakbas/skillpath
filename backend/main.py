@@ -162,6 +162,7 @@ class CommunityPost(Base):
     post_type = Column(String(20), nullable=True)  # varchar(20)
     likes_count = Column(Integer, nullable=True, default=0)  # likes_count
     replies_count = Column(Integer, nullable=True, default=0)  # replies_count
+    views_count = Column(Integer, nullable=True, default=0)  # views_count
     is_expert_post = Column(Integer, nullable=True, default=0)  # int
     is_active = Column(Integer, nullable=True, default=1)  # int
     created_at = Column(DateTime, default=func.now())
@@ -397,6 +398,7 @@ class CommunityPostResponse(BaseModel):
     post_type: Optional[str] = None
     likes_count: int = 0
     replies_count: int = 0  # comment_count yerine replies_count
+    views_count: int = 0  # views_count eklendi
     is_expert_post: int = 0
     is_active: int = 1
     created_at: str
@@ -530,13 +532,13 @@ def init_sample_courses(db: Session):
 async def startup_event():
     """Initialize database on startup"""
     # Create all tables
-    Base.metadata.create_all(bind=engine)
-    
-    db = SessionLocal()
-    try:
+        Base.metadata.create_all(bind=engine)
+        
+        db = SessionLocal()
+        try:
         init_sample_courses(db)
-    finally:
-        db.close()
+        finally:
+            db.close()
 
 # API Endpoints
 @app.get("/")
@@ -965,10 +967,10 @@ if __name__ == "__main__":
 
 # Dashboard & Analytics Endpoints
 @app.get("/api/user/dashboard")
-async def get_dashboard_stats(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_dashboard_stats(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Kullanıcının dashboard istatistiklerini döndür"""
     try:
-        user_id = current_user["sub"]
+        user_id = current_user.id  # .id kullan
         
         # Kullanıcının roadmap sayısı
         total_roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).count()
@@ -1019,10 +1021,10 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user), db
         raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
 
 @app.get("/api/user/roadmaps")
-async def get_user_roadmaps(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Kullanıcının roadmap'lerini döndür"""
     try:
-        user_id = current_user["sub"]
+        user_id = current_user.id  # .id kullan
         
         roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).all()
         result = []
@@ -1142,7 +1144,7 @@ async def get_community_posts(
     limit: int = 20,
     offset: int = 0,
     post_type: Optional[str] = None,
-    current_user: User = Depends(get_current_user),  # dict -> User
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get community posts with pagination and filtering"""
@@ -1160,6 +1162,9 @@ async def get_community_posts(
         
         result = []
         for post, user_name in posts:
+            # Increment view count for each post viewed
+            post.views_count = (post.views_count or 0) + 1
+            
             result.append(CommunityPostResponse(
                 id=post.id,
                 user_id=post.user_id,
@@ -1170,11 +1175,15 @@ async def get_community_posts(
                 post_type=post.post_type,
                 likes_count=post.likes_count or 0,
                 replies_count=post.replies_count or 0,
+                views_count=post.views_count or 0,
                 is_expert_post=post.is_expert_post or 0,
                 is_active=post.is_active or 1,
                 created_at=post.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 updated_at=post.updated_at.strftime("%Y-%m-%d %H:%M:%S")
             ))
+        
+        # Commit view count updates
+        db.commit()
             
         return result
         
@@ -1264,12 +1273,17 @@ async def get_post_comments(post_id: int, db: Session = Depends(get_db)):
 async def create_comment(
     post_id: int,
     comment_data: CommunityCommentCreate,
-    current_user: User = Depends(get_current_user),  # dict -> User
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Gönderiye yorum ekle"""
     try:
-        user_id = current_user.id  # .id kullan
+        user_id = current_user.id
+        
+        # Check if post exists
+        post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
         
         new_comment = CommunityComment(
             post_id=post_id,
@@ -1279,6 +1293,10 @@ async def create_comment(
         )
         
         db.add(new_comment)
+        
+        # Increase replies count
+        post.replies_count = (post.replies_count or 0) + 1
+        
         db.commit()
         db.refresh(new_comment)
         
@@ -1286,7 +1304,7 @@ async def create_comment(
             id=new_comment.id,
             post_id=new_comment.post_id,
             user_id=new_comment.user_id,
-            user_name=current_user.full_name,  # current_user.full_name kullan
+            user_name=current_user.full_name,
             content=new_comment.content,
             parent_comment_id=new_comment.parent_comment_id,
             likes=new_comment.likes,
@@ -1302,12 +1320,12 @@ async def create_comment(
 @app.post("/api/community/posts/{post_id}/like")
 async def like_post(
     post_id: int,
-    current_user: User = Depends(get_current_user),  # dict -> User
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Like/unlike a community post"""
     try:
-        user_id = current_user.id  # .id kullan
+        user_id = current_user.id
         
         # Check if post exists
         post = db.query(CommunityPost).filter(CommunityPost.id == post_id).first()
@@ -1324,20 +1342,21 @@ async def like_post(
             # Unlike - remove the like
             db.delete(existing_like)
             liked = False
+            # Decrease likes count
+            post.likes_count = max(0, (post.likes_count or 0) - 1)
         else:
             # Like - add new like
             new_like = PostLike(user_id=user_id, post_id=post_id)
             db.add(new_like)
             liked = True
+            # Increase likes count
+            post.likes_count = (post.likes_count or 0) + 1
         
         db.commit()
         
-        # Count total likes for this post
-        total_likes = db.query(PostLike).filter(PostLike.post_id == post_id).count()
-        
         return {
             "liked": liked,
-            "total_likes": total_likes
+            "total_likes": post.likes_count or 0
         }
         
     except Exception as e:
