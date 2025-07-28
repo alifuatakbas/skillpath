@@ -9,12 +9,14 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  FlatList,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
-import { getCommunityStats, CommunityStats } from '../services/api';
+import { getCommunityStats, getCommunityPosts } from '../services/api';
 
 type CommunityScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Community'>;
 
@@ -22,137 +24,214 @@ interface Props {
   navigation: CommunityScreenNavigationProp;
 }
 
+interface CommunityPost {
+  id: number;
+  user_name: string;
+  title: string;
+  content: string;
+  post_type: string;
+  views: number;
+  likes: number;
+  comment_count: number;
+  created_at: string;
+}
+
 export default function CommunityScreen({ navigation }: Props) {
-  const [stats, setStats] = useState<CommunityStats | null>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedTab, setSelectedTab] = useState('all'); // all, questions, discussions
 
   useEffect(() => {
-    loadCommunityStats();
-  }, []);
+    loadCommunityData();
+  }, [selectedTab]);
 
-  const loadCommunityStats = async () => {
+  const loadCommunityData = async () => {
     try {
       setLoading(true);
-      const communityStats = await getCommunityStats();
+      const [communityStats, communityPosts] = await Promise.all([
+        getCommunityStats(),
+        getCommunityPosts(20, 0, selectedTab === 'all' ? undefined : selectedTab)
+      ]);
+      
       setStats(communityStats);
+      setPosts(communityPosts);
     } catch (error) {
-      console.error('Community stats error:', error);
+      console.error('Community data error:', error);
       Alert.alert('Hata', 'Topluluk verileri yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadCommunityData();
+  };
+
+  const renderPost = ({ item }: { item: CommunityPost }) => (
+    <TouchableOpacity
+      style={styles.postCard}
+      onPress={() => {
+        // Navigate to post detail screen
+        // navigation.navigate('PostDetail', { postId: item.id });
+        Alert.alert('Post Detail', `${item.title}\n\n${item.content}`);
+      }}
+    >
+      <View style={styles.postHeader}>
+        <View style={styles.postMeta}>
+          <Text style={styles.userName}>{item.user_name}</Text>
+          <Text style={styles.postDate}>{new Date(item.created_at).toLocaleDateString('tr-TR')}</Text>
+        </View>
+        <View style={[styles.typeTag, { backgroundColor: getTypeColor(item.post_type) }]}>
+          <Text style={styles.typeText}>{getTypeLabel(item.post_type)}</Text>
+        </View>
+      </View>
+      
+      <Text style={styles.postTitle}>{item.title}</Text>
+      <Text style={styles.postContent} numberOfLines={3}>
+        {item.content}
+      </Text>
+      
+      <View style={styles.postStats}>
+        <View style={styles.statItem}>
+          <Ionicons name="eye-outline" size={16} color="#666" />
+          <Text style={styles.statText}>{item.views}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Ionicons name="heart-outline" size={16} color="#666" />
+          <Text style={styles.statText}>{item.likes}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Ionicons name="chatbubble-outline" size={16} color="#666" />
+          <Text style={styles.statText}>{item.comment_count}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'question': return '#3B82F6';
+      case 'discussion': return '#10B981';
+      case 'tip': return '#F59E0B';
+      default: return '#6B7280';
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'question': return 'Soru';
+      case 'discussion': return 'Tartışma';
+      case 'tip': return 'İpucu';
+      default: return type;
+    }
+  };
+
+  const handleCreatePost = () => {
+    // Navigate to create post screen
+    // navigation.navigate('CreatePost');
+    Alert.alert('Yeni Gönderi', 'Create Post ekranı yakında eklenecek!');
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.loadingText}>Topluluk yükleniyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#374151" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Topluluk</Text>
-          <View style={styles.placeholder} />
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Topluluk</Text>
+        <TouchableOpacity style={styles.createButton} onPress={handleCreatePost}>
+          <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
-        {/* Hero Section */}
-        <LinearGradient
-          colors={['#f1f5f9', '#e0f2fe']}
-          style={styles.heroSection}
-        >
-          <Text style={styles.heroTitle}>
-            Öğrenme{'\n'}
-            <Text style={styles.heroGradientText}>Topluluğu</Text>
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            Diğer öğrencilerle bağlan, sorular sor, deneyimlerini paylaş
-          </Text>
-        </LinearGradient>
-
-        {/* Community Options */}
-        <View style={styles.communityOptions}>
-          <TouchableOpacity
-            style={styles.optionCard}
-            onPress={() => navigation.navigate('MyCommunity')}
-          >
-            <LinearGradient 
-              colors={['#667eea', '#764ba2']} 
-              style={styles.optionGradient}
-            >
-              <View style={styles.optionContent}>
-                <Ionicons name="people" size={32} color="#fff" />
-                <Text style={styles.optionTitle}>Benim Topluluğum</Text>
-                <Text style={styles.optionSubtitle}>
-                  Roadmap'lerinizdeki konular hakkında soru sorun ve deneyim paylaşın
-                </Text>
-                <View style={styles.optionFeatures}>
-                  <Text style={styles.featureText}>• Kendi roadmap'leriniz</Text>
-                  <Text style={styles.featureText}>• Benzer öğrenciler</Text>
-                  <Text style={styles.featureText}>• Özel sorular</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.optionCard}
-            onPress={() => navigation.navigate('Explore')}
-          >
-            <LinearGradient 
-              colors={['#f093fb', '#f5576c']} 
-              style={styles.optionGradient}
-            >
-              <View style={styles.optionContent}>
-                <Ionicons name="compass" size={32} color="#fff" />
-                <Text style={styles.optionTitle}>Keşfet</Text>
-                <Text style={styles.optionSubtitle}>
-                  Tüm skill'ler ve konular hakkında popüler içerikleri keşfedin
-                </Text>
-                <View style={styles.optionFeatures}>
-                  <Text style={styles.featureText}>• Tüm konular</Text>
-                  <Text style={styles.featureText}>• Popüler sorular</Text>
-                  <Text style={styles.featureText}>• Uzman tavsiyeleri</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* Quick Stats */}
+      {/* Stats Summary */}
+      {stats && (
         <View style={styles.statsContainer}>
-          <Text style={styles.statsTitle}>Topluluk İstatistikleri</Text>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#3b82f6" />
-              <Text style={styles.loadingText}>Veriler yükleniyor...</Text>
-            </View>
-          ) : (
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{stats?.active_users || 0}</Text>
-                <Text style={styles.statLabel}>Aktif Üye</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{stats?.total_posts || 0}</Text>
-                <Text style={styles.statLabel}>Toplam Post</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{stats?.total_replies || 0}</Text>
-                <Text style={styles.statLabel}>Toplam Cevap</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{stats?.popular_skills?.length || 0}</Text>
-                <Text style={styles.statLabel}>Popüler Skill</Text>
-              </View>
-            </View>
-          )}
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{stats.totalMembers}</Text>
+            <Text style={styles.statLabel}>Üye</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{stats.activeToday}</Text>
+            <Text style={styles.statLabel}>Bugün Aktif</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{stats.totalRoadmaps || stats.totalPosts || 0}</Text>
+            <Text style={styles.statLabel}>Gönderi</Text>
+          </View>
         </View>
-      </ScrollView>
+      )}
+
+      {/* Filter Tabs */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === 'all' && styles.activeTab]}
+          onPress={() => setSelectedTab('all')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'all' && styles.activeTabText]}>
+            Tümü
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === 'question' && styles.activeTab]}
+          onPress={() => setSelectedTab('question')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'question' && styles.activeTabText]}>
+            Sorular
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === 'discussion' && styles.activeTab]}
+          onPress={() => setSelectedTab('discussion')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'discussion' && styles.activeTabText]}>
+            Tartışma
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Posts List */}
+      <FlatList
+        data={posts}
+        renderItem={renderPost}
+        keyExtractor={(item) => item.id.toString()}
+        style={styles.postsList}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#3B82F6']}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="chatbubbles-outline" size={64} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>Henüz gönderi yok</Text>
+            <Text style={styles.emptyDescription}>
+              İlk gönderiyi sen oluştur ve toplulukla paylaş!
+            </Text>
+            <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePost}>
+              <Text style={styles.emptyButtonText}>Soru Sor</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -175,16 +254,33 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
+  createButton: {
+    backgroundColor: '#3B82F6',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  postsList: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
   backButton: {
     padding: 8,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-  },
   placeholder: {
     width: 40,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
   },
   heroSection: {
     padding: 24,
@@ -305,5 +401,131 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
     marginTop: 8,
+  },
+  postCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  postMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#374151',
+    marginRight: 8,
+  },
+  postDate: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  typeTag: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  typeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  postTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  postContent: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 8,
+  },
+  postStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  tab: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  activeTab: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 12,
+  },
+  activeTabText: {
+    color: '#fff',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    backgroundColor: '#f8fafc',
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  emptyButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }); 

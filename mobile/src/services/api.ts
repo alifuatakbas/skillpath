@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppConfig } from '../config/environment';
 import {
   AuthResponse,
   UserLogin,
@@ -21,7 +22,7 @@ import {
   NotificationResponse,
 } from '../types';
 
-const API_BASE_URL = 'http://192.168.1.133:8001';
+const API_BASE_URL = AppConfig.API_BASE_URL;
 
 // Token Manager
 export class TokenManager {
@@ -248,4 +249,50 @@ export const getNotificationHistory = async (
   limit: number = 20
 ): Promise<NotificationResponse[]> => {
   return apiClient.get<NotificationResponse[]>(`/api/notifications/history?limit=${limit}`);
+};
+
+// Community API
+export const getCommunityStats = async (): Promise<any> => {
+  return apiClient.get<any>('/api/community/stats');
+};
+
+// Community Posts API
+export const getCommunityPosts = async (
+  limit: number = 20,
+  offset: number = 0,
+  postType?: string
+): Promise<any[]> => {
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    offset: offset.toString(),
+    ...(postType && { post_type: postType })
+  });
+  return apiClient.get<any[]>(`/api/community/posts?${params}`);
+};
+
+export const createCommunityPost = async (postData: {
+  title: string;
+  content: string;
+  post_type?: string;
+  tags?: string;
+}): Promise<any> => {
+  return apiClient.post<any>('/api/community/posts', postData);
+};
+
+export const getPostComments = async (postId: number): Promise<any[]> => {
+  return apiClient.get<any[]>(`/api/community/posts/${postId}/comments`);
+};
+
+export const createComment = async (
+  postId: number,
+  commentData: {
+    content: string;
+    parent_comment_id?: number;
+  }
+): Promise<any> => {
+  return apiClient.post<any>(`/api/community/posts/${postId}/comments`, commentData);
+};
+
+export const likePost = async (postId: number): Promise<any> => {
+  return apiClient.post<any>(`/api/community/posts/${postId}/like`);
 }; 

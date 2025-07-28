@@ -1,0 +1,58 @@
+{
+  "cli": {
+    "version": ">= 16.17.3",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Debug"
+      },
+      "env": {
+        "EXPO_USE_FAST_RESOLVER": "1"
+      },
+      "cache": {
+        "disabled": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "channel": "preview",
+      "env": {
+        "EXPO_USE_FAST_RESOLVER": "1"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release",
+        "distribution": "store"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "production",
+      "env": {
+        "EXPO_USE_FAST_RESOLVER": "1",
+        "EXPO_NO_CAPABILITY_SYNC": "1"
+      },
+      "cache": {
+        "disabled": true
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "alifuatakbas-3@hotmail.com",
+        "ascAppId": "6749216385",
+        "appleTeamId": "9WFH2S9PAQ"
+      }
+    }
+  }
+} 
