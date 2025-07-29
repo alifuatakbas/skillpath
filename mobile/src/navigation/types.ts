@@ -29,4 +29,6 @@ export type RootStackParamList = {
   MyCommunity: undefined;
   Explore: undefined;
   CreatePost: undefined; // Yeni eklendi
+  Pomodoro: undefined; // Pomodoro timer
+  Calendar: undefined; // Calendar & planning
 }; 

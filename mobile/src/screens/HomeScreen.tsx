@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
 import { usePremium } from '../contexts/PremiumContext';
+import { useGamification } from '../contexts/GamificationContext';
 import { subscriptionService } from '../services/subscriptionService';
 import {
   TokenManager,
@@ -59,6 +60,7 @@ export default function HomeScreen({ navigation }: Props) {
   
   // Premium hooks - simplified
   const { isPremium, refreshSubscription } = usePremium();
+  const { gamificationData } = useGamification();
   
   // Auth form states
   const [loginForm, setLoginForm] = useState<UserLogin>({ email: '', password: '' });
@@ -522,7 +524,7 @@ export default function HomeScreen({ navigation }: Props) {
             }}
           >
             <LinearGradient colors={['#667eea', '#764ba2']} style={styles.actionGradient}>
-              <Ionicons name="map-outline" size={28} color="#fff" />
+              <Ionicons name="map-outline" size={26} color="#fff" />
               <Text style={styles.actionText}>
                 Generate Roadmap
               </Text>
@@ -534,7 +536,7 @@ export default function HomeScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Dashboard')}
           >
             <LinearGradient colors={['#f093fb', '#f5576c']} style={styles.actionGradient}>
-              <Ionicons name="analytics-outline" size={28} color="#fff" />
+              <Ionicons name="analytics-outline" size={26} color="#fff" />
               <Text style={styles.actionText}>Dashboard</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -544,13 +546,80 @@ export default function HomeScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Community')}
           >
             <LinearGradient colors={['#4facfe', '#00f2fe']} style={styles.actionGradient}>
-              <Ionicons name="people-outline" size={28} color="#fff" />
+              <Ionicons name="people-outline" size={26} color="#fff" />
               <Text style={styles.actionText}>Community</Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Daily task kartı kaldırıldı */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Profile', {})}
+          >
+            <LinearGradient colors={['#ff9a9e', '#fecfef']} style={styles.actionGradient}>
+              <Ionicons name="person-circle-outline" size={26} color="#fff" />
+              <Text style={styles.actionText}>Profil</Text>
+              {isLoggedIn && (
+                <Text style={styles.profileStatText}>
+                  Seviye {gamificationData.currentLevel} • {gamificationData.currentStreak}🔥
+                </Text>
+              )}
+            </LinearGradient>
+                    </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Pomodoro')}
+          >
+            <LinearGradient colors={['#ff6b6b', '#ee5a52']} style={styles.actionGradient}>
+              <Ionicons name="timer-outline" size={26} color="#fff" />
+              <Text style={styles.actionText}>Pomodoro</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Calendar')}
+          >
+            <LinearGradient colors={['#10b981', '#059669']} style={styles.actionGradient}>
+              <Ionicons name="calendar-outline" size={26} color="#fff" />
+              <Text style={styles.actionText}>Takvim</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
+
+        {/* Daily Study Time Card */}
+        {isLoggedIn && (
+          <View style={styles.dailyStudySection}>
+            <View style={styles.dailyStudyCard}>
+              <LinearGradient colors={['#667eea', '#764ba2']} style={styles.dailyStudyGradient}>
+                <View style={styles.dailyStudyHeader}>
+                  <Ionicons name="time" size={24} color="#fff" />
+                  <Text style={styles.dailyStudyTitle}>Bugünkü Çalışma</Text>
+                </View>
+                <View style={styles.dailyStudyStats}>
+                  <View style={styles.dailyStudyStat}>
+                    <Text style={styles.dailyStudyValue}>
+                      {Math.floor(gamificationData.totalStudyMinutes / 60)}
+                    </Text>
+                    <Text style={styles.dailyStudyLabel}>Saat</Text>
+                  </View>
+                  <View style={styles.dailyStudyStat}>
+                    <Text style={styles.dailyStudyValue}>
+                      {gamificationData.totalStudyMinutes % 60}
+                    </Text>
+                    <Text style={styles.dailyStudyLabel}>Dakika</Text>
+                  </View>
+                  <View style={styles.dailyStudyStat}>
+                    <Text style={styles.dailyStudyValue}>
+                      {Math.floor(gamificationData.totalStudyMinutes / 25)}
+                    </Text>
+                    <Text style={styles.dailyStudyLabel}>Pomodoro</Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Auth Modal */}
@@ -1166,27 +1235,32 @@ const styles = StyleSheet.create({
     width: '48%',
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     alignItems: 'center',
-    elevation: 3,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
     marginBottom: 12,
+    minHeight: 100,
   },
   actionGradient: {
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   actionText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#fff',
-    marginTop: 8,
+    marginTop: 6,
+    textAlign: 'center',
   },
   upgradeButton: {
     backgroundColor: '#3b82f6',
@@ -1393,6 +1467,137 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     marginRight: 8,
+  },
+  // Profile card styles
+  profileCardContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileStatText: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  // Quick Stats Section
+  quickStatsSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  quickStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  quickStatCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    width: '48%',
+    alignItems: 'center',
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  quickStatValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  // Features Section
+  featuresSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  featureCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    width: '48%',
+    alignItems: 'center',
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  featureTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 8,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  featureDescription: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  // Daily Study Section
+  dailyStudySection: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  dailyStudyCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  dailyStudyGradient: {
+    padding: 20,
+  },
+  dailyStudyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dailyStudyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginLeft: 12,
+  },
+  dailyStudyStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dailyStudyStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  dailyStudyValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  dailyStudyLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
 
 

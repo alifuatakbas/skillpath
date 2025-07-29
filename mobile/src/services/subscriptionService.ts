@@ -1,6 +1,16 @@
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppConfig } from '../config/environment';
+import { 
+  initConnection, 
+  getProducts, 
+  requestPurchase, 
+  finishTransaction,
+  getAvailablePurchases,
+  Product,
+  Purchase,
+  SubscriptionPurchase
+} from 'react-native-iap';
 
 // API Base URL - will be dynamically set
 let API_BASE_URL = AppConfig.API_BASE_URL;
@@ -24,23 +34,21 @@ export interface UserSubscription {
   originalTransactionId?: string | null;
 }
 
-// Premium plans
-const PREMIUM_PLANS: SubscriptionProduct[] = [
+// App Store product IDs
+const PRODUCT_IDS = {
+  MONTHLY: 'skillpath_premium_monthly',
+  YEARLY: 'skillpath_premium_yearly',
+};
+
+// Fallback plans (if App Store fails)
+const FALLBACK_PLANS: SubscriptionProduct[] = [
   {
-    productId: 'premium_monthly',
+    productId: PRODUCT_IDS.MONTHLY,
     title: 'Premium Aylık',
     description: 'Tüm premium özellikler',
-    price: '9.99',
+    price: '6.99',
     currency: 'USD',
-    localizedPrice: '$9.99',
-  },
-  {
-    productId: 'premium_yearly',
-    title: 'Premium Yıllık',
-    description: 'Tüm premium özellikler + 33% indirim',
-    price: '79.00',
-    currency: 'USD',
-    localizedPrice: '$79.00',
+    localizedPrice: '$6.99',
   },
 ];
 
@@ -49,8 +57,16 @@ class SubscriptionService {
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
-    console.log('✅ Simple premium system initialized');
-    this.isInitialized = true;
+    
+    try {
+      // App Store IAP bağlantısını başlat
+      await initConnection();
+      console.log('✅ App Store IAP initialized');
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('❌ Failed to initialize IAP:', error);
+      throw error; // Hatayı fırlat, fallback kullanma
+    }
   }
 
   async checkSubscriptionStatus(): Promise<UserSubscription> {
@@ -93,14 +109,33 @@ class SubscriptionService {
 
   async getAvailableSubscriptions(): Promise<SubscriptionProduct[]> {
     await this.initialize();
-    return PREMIUM_PLANS;
+    
+    try {
+      // App Store'dan ürünleri al
+      const products = await getProducts({ skus: [PRODUCT_IDS.MONTHLY] });
+      
+      // App Store ürünlerini SubscriptionProduct formatına çevir
+      const subscriptionProducts: SubscriptionProduct[] = products.map((product: Product) => ({
+        productId: product.productId,
+        title: product.title,
+        description: product.description,
+        price: product.price,
+        currency: product.currency,
+        localizedPrice: product.localizedPrice,
+      }));
+      
+      return subscriptionProducts.length > 0 ? subscriptionProducts : FALLBACK_PLANS;
+    } catch (error) {
+      console.error('Failed to get App Store products:', error);
+      return FALLBACK_PLANS;
+    }
   }
 
   async purchaseSubscription(productId: string): Promise<boolean> {
     try {
       await this.initialize();
 
-      const plan = PREMIUM_PLANS.find(p => p.productId === productId);
+      const plan = FALLBACK_PLANS.find((p: SubscriptionProduct) => p.productId === productId);
       const planName = plan ? plan.localizedPrice : productId;
       
       return new Promise((resolve) => {
@@ -117,18 +152,64 @@ class SubscriptionService {
               text: 'Satın Al',
               onPress: async () => {
                 try {
-                  console.log('🛒 Processing premium purchase...');
+                  console.log('🛒 Processing App Store purchase...');
                   
-                  // Backend'e satın alma isteği gönder
+                  // App Store'dan satın alma
+                  const purchase = await requestPurchase({ sku: productId });
+                  console.log('📱 App Store purchase:', purchase);
+                  
+                  if (purchase) {
+                    // Array ise ilk elemanı al
+                    const purchaseData = Array.isArray(purchase) ? purchase[0] : purchase;
+                    
+                    // Transaction'ı tamamla
+                    await finishTransaction({ purchase: purchaseData });
+                    
+                    // Backend'e satın alma bilgisini gönder
+                    const token = await AsyncStorage.getItem('skillpath_token');
+                    const { AppConfig } = await import('../config/environment');
+                    
+                    const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/purchase`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        product_id: productId,
+                        transaction_id: purchaseData.transactionId,
+                        receipt: purchaseData.transactionReceipt,
+                        platform: Platform.OS
+                      }),
+                    });
+
+                    if (response.ok) {
+                      const result = await response.json();
+                      console.log('✅ Premium purchase successful:', result);
+                      
+                      // User data'sını güncelle
+                      const userData = await AsyncStorage.getItem('user');
+                      if (userData) {
+                        const user = JSON.parse(userData);
+                        const updatedUser = {
+                          ...user,
+                          subscription_type: 'premium',
+                          subscription_expires: result.expires_at
+                        };
+                        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+                      }
+                      
+                      Alert.alert('🎉 Başarılı!', 'Premium aboneliği aktif edildi!');
+                      resolve(true);
+                    } else {
+                      console.error('❌ Premium purchase failed');
+                      Alert.alert('❌ Hata', 'Satın alma işlemi başarısız');
+                      resolve(false);
+                    }
+                  
+                  // Backend'e satın alma bilgisini gönder
                   const token = await AsyncStorage.getItem('skillpath_token');
                   const { AppConfig } = await import('../config/environment');
-                  
-                  console.log('🔗 API URL:', AppConfig.API_BASE_URL);
-                  console.log('🔑 Token:', token ? `${token.substring(0, 20)}...` : 'No token');
-                  
-                  // Timeout controller
-                  const controller = new AbortController();
-                  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye
                   
                   const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/purchase`, {
                     method: 'POST',
@@ -138,12 +219,11 @@ class SubscriptionService {
                     },
                     body: JSON.stringify({
                       product_id: productId,
-                      payment_method: 'test'
+                      transaction_id: purchase.transactionId,
+                      receipt: purchase.transactionReceipt,
+                      platform: Platform.OS
                     }),
-                    signal: controller.signal,
                   });
-                  
-                  clearTimeout(timeoutId);
 
                   if (response.ok) {
                     const result = await response.json();

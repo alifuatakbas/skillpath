@@ -9,10 +9,20 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { subscriptionService, SubscriptionProduct } from '../services/subscriptionService';
 import { usePremium } from '../contexts/PremiumContext';
+
+// Subscription product interface
+interface SubscriptionProduct {
+  productId: string;
+  title: string;
+  description: string;
+  price: string;
+  currency: string;
+  localizedPrice: string;
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,68 +34,39 @@ interface PaywallScreenProps {
 // Test için fallback planlar (store'dan yüklenemezse)
 const FALLBACK_PLANS: SubscriptionProduct[] = [
   {
-    productId: 'skillpath_premium_monthly',
+    productId: 'SkillPath_monthly_premium',
     title: 'Premium Aylık',
     description: 'Tüm premium özellikler',
-    price: '9.99',
+    price: '6.99',
     currency: 'USD',
-    localizedPrice: '$9.99',
+    localizedPrice: '$6.99',
   },
   {
     productId: 'skillpath_premium_yearly',
     title: 'Premium Yıllık',
     description: 'Tüm premium özellikler + %33 indirim',
-    price: '79.99',
+    price: '55.99',
     currency: 'USD',
-    localizedPrice: '$79.99',
+    localizedPrice: '$55.99',
   },
 ];
 
 const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
-  const [plans, setPlans] = useState<SubscriptionProduct[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const [plans, setPlans] = useState<SubscriptionProduct[]>(FALLBACK_PLANS);
+  const [selectedPlan, setSelectedPlan] = useState<string>('SkillPath_monthly_premium');
+  const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+
   
   // Premium context kullan
-  const { refreshSubscription } = usePremium();
+  const { refreshSubscription, trialDaysLeft, trialExpiryDate } = usePremium();
 
-  useEffect(() => {
-    loadPlans();
+useEffect(() => {
+    // Varsayılan olarak aylık planı seç
+    setSelectedPlan('skillpath_premium_monthly');
   }, []);
 
-  const loadPlans = async () => {
-    try {
-      // Subscription service'i başlat
-      await subscriptionService.initialize();
-      
-      // Store'dan planları yüklemeye çalış
-      const availablePlans = await subscriptionService.getAvailableSubscriptions();
-      
-      // Eğer store'dan plan gelmezse fallback kullan
-      const plansToUse = availablePlans.length > 0 ? availablePlans : FALLBACK_PLANS;
-      setPlans(plansToUse);
-      
-      // Varsayılan olarak yıllık planı seç
-      const yearlyPlan = plansToUse.find(plan => plan.productId.includes('yearly'));
-      if (yearlyPlan) {
-        setSelectedPlan(yearlyPlan.productId);
-      } else if (plansToUse.length > 0) {
-        setSelectedPlan(plansToUse[0].productId);
-      }
-      
-      console.log('📦 Loaded plans:', plansToUse);
-    } catch (error) {
-      console.error('Failed to load plans:', error);
-      // Hata durumunda fallback planları kullan
-      setPlans(FALLBACK_PLANS);
-      setSelectedPlan(FALLBACK_PLANS[1].productId); // Yıllık planı seç
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePurchase = async () => {
+  const handleStartTrial = async () => {
     if (!selectedPlan) {
       Alert.alert('Hata', 'Lütfen bir plan seçin');
       return;
@@ -93,26 +74,64 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
     setPurchasing(true);
     try {
-      const result = await subscriptionService.purchaseSubscription(selectedPlan);
+      const selectedPlanData = plans.find(plan => plan.productId === selectedPlan);
       
-      if (result) {
-        // Premium durumunu yenile
-        await refreshSubscription();
+      if (selectedPlanData) {
+        // App Store IAP ile trial başlat
+        const { requestPurchase, finishTransaction } = await import('react-native-iap');
         
-        Alert.alert(
-          'Başarılı! 🎉',
-          'Premium aboneliğiniz aktif edildi. Artık tüm özelliklerden yararlanabilirsiniz!',
-          [
-            {
-              text: 'Harika!',
-              onPress: () => navigation.goBack(),
+        const purchase = await requestPurchase({
+          sku: selectedPlan,
+          andDangerouslyFinishTransactionAutomaticallyIOS: false,
+        });
+
+        if (purchase) {
+          // Array ise ilk elemanı al
+          const purchaseData = Array.isArray(purchase) ? purchase[0] : purchase;
+          
+          // Transaction'ı tamamla
+          await finishTransaction({ purchase: purchaseData });
+          
+          // Backend'e trial başlatma isteği gönder
+          const token = await AsyncStorage.getItem('skillpath_token');
+          const { AppConfig } = await import('../config/environment');
+          
+          const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/start-trial`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
             },
-          ]
-        );
+            body: JSON.stringify({
+              product_id: selectedPlan,
+              transaction_id: purchaseData.transactionId,
+              receipt: purchaseData.transactionReceipt,
+            }),
+          });
+
+          if (response.ok) {
+            // Premium durumunu yenile
+            await refreshSubscription();
+            
+            Alert.alert(
+              'Trial Başlatıldı! 🎉',
+              `3 günlük ücretsiz deneme süreniz başladı. ${selectedPlanData.title} planına abone olacaksınız.`,
+              [
+                {
+                  text: 'Harika!',
+                  onPress: () => navigation.goBack(),
+                },
+              ]
+            );
+          } else {
+            Alert.alert('Hata', 'Trial başlatılamadı. Lütfen tekrar deneyin.');
+          }
+        }
       } else {
-        Alert.alert('Hata', 'Satın alma işlemi başarısız');
+        Alert.alert('Hata', 'Seçilen plan bulunamadı.');
       }
     } catch (error) {
+      console.error('Trial error:', error);
       Alert.alert('Hata', 'Beklenmeyen bir hata oluştu');
     } finally {
       setPurchasing(false);
@@ -121,19 +140,12 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
   const handleRestore = async () => {
     try {
-      const status = await subscriptionService.checkSubscriptionStatus();
-      if (status.isActive) {
-        // Premium durumunu yenile
-        await refreshSubscription();
-        
-        Alert.alert(
-          'Abonelik Geri Yüklendi! 🎉',
-          'Premium aboneliğiniz başarıyla geri yüklendi.',
-          [{ text: 'Tamam', onPress: () => navigation.goBack() }]
-        );
-      } else {
-        Alert.alert('Bilgi', 'Geri yüklenecek abonelik bulunamadı.');
-      }
+      // Basit geri yükleme simülasyonu
+      Alert.alert(
+        'Bilgi',
+        'Geri yüklenecek abonelik bulunamadı. Lütfen yeni bir abonelik satın alın.',
+        [{ text: 'Tamam' }]
+      );
     } catch (error) {
       Alert.alert('Hata', 'Abonelik geri yükleme başarısız');
     }
@@ -142,16 +154,17 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   // Plan bilgilerini düzenle
   const getPlanDisplayInfo = (plan: SubscriptionProduct) => {
     const isYearly = plan.productId.includes('yearly');
+    const isLifetime = plan.productId.includes('lifetime');
     const monthlyPrice = isYearly ? (parseFloat(plan.price) / 12).toFixed(2) : plan.price;
-    const savings = isYearly ? Math.round(((9.99 - parseFloat(monthlyPrice)) / 9.99) * 100) : 0;
+    const savings = isYearly ? Math.round(((6.99 - parseFloat(monthlyPrice)) / 6.99) * 100) : 0;
     
     return {
-      title: isYearly ? 'Premium Yıllık' : 'Premium Aylık',
+      title: plan.title,
       price: plan.localizedPrice,
-      pricePerMonth: isYearly ? `$${monthlyPrice}/ay` : `${plan.localizedPrice}/ay`,
+      pricePerMonth: isLifetime ? 'Tek seferlik' : (isYearly ? `$${monthlyPrice}/ay` : `${plan.localizedPrice}/ay`),
       savings: isYearly ? `%${savings} tasarruf` : null,
       isPopular: isYearly,
-      description: isYearly ? 'Tüm premium özellikler + %33 indirim' : 'Tüm premium özellikler',
+      description: plan.description,
     };
   };
 
@@ -219,6 +232,26 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Trial Info */}
+        {trialDaysLeft > 0 && (
+          <View style={styles.trialContainer}>
+            <View style={styles.trialBadge}>
+              <Ionicons name="time-outline" size={20} color="#fff" />
+              <Text style={styles.trialBadgeText}>{trialDaysLeft} Gün Kaldı</Text>
+            </View>
+            <Text style={styles.trialTitle}>Ücretsiz Deneme Süreniz</Text>
+            <Text style={styles.trialDescription}>
+              {trialExpiryDate ? 
+                `${trialExpiryDate.toLocaleDateString('tr-TR')} tarihine kadar tüm premium özellikleri ücretsiz deneyin!` :
+                '3 gün boyunca tüm premium özellikleri ücretsiz deneyin!'
+              }
+            </Text>
+            <Text style={styles.trialWarning}>
+              ⚠️ Deneme süresi sonunda otomatik olarak seçili plana abone olacaksınız.
+            </Text>
+          </View>
+        )}
+
         {/* Premium Features */}
         <View style={styles.featuresContainer}>
           <Text style={styles.featuresTitle}>Premium Özellikler</Text>
@@ -285,7 +318,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
         {/* Purchase Button */}
         <TouchableOpacity
           style={[styles.purchaseButton, purchasing && styles.purchaseButtonDisabled]}
-          onPress={handlePurchase}
+          onPress={handleStartTrial}
           disabled={purchasing}
         >
           <LinearGradient
@@ -295,7 +328,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
             {purchasing ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.purchaseButtonText}>Premium'a Geç</Text>
+              <Text style={styles.purchaseButtonText}>Trial Başlat</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -321,6 +354,8 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
           </Text>
         </View>
       </ScrollView>
+
+
     </View>
   );
 };
@@ -540,6 +575,49 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
     lineHeight: 18,
+  },
+  // Trial styles
+  trialContainer: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#0ea5e9',
+  },
+  trialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0ea5e9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  trialBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  trialTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0c4a6e',
+    marginBottom: 8,
+  },
+  trialDescription: {
+    fontSize: 14,
+    color: '#0369a1',
+    lineHeight: 20,
+  },
+  trialWarning: {
+    fontSize: 12,
+    color: '#dc2626',
+    lineHeight: 16,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });
 

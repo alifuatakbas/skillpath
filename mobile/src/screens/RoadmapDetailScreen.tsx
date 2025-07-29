@@ -12,11 +12,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getRoadmapProgress, completeStep, uncompleteStep } from '../services/api';
 import { RoadmapProgress, StepProgress } from '../types';
+import { useGamification } from '../contexts/GamificationContext';
 
 const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: any }) => {
   const { roadmapId } = route.params;
   const [roadmapData, setRoadmapData] = useState<RoadmapProgress | null>(null);
   const [loading, setLoading] = useState(true);
+  const { addXp, recordActivity } = useGamification();
 
   const loadRoadmapData = async () => {
     try {
@@ -40,6 +42,10 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
         await uncompleteStep(roadmapId, step.step_id);
       } else {
         await completeStep(roadmapId, step.step_id);
+        
+        // XP kazan
+        await addXp(25, `"${step.title}" adımını tamamladın!`);
+        await recordActivity();
       }
       
       // Reload data

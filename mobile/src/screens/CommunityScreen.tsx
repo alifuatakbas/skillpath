@@ -69,54 +69,98 @@ export default function CommunityScreen({ navigation }: Props) {
   const [userRoadmaps, setUserRoadmaps] = useState<any[]>([]);
   const [showRoadmapList, setShowRoadmapList] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
+  const [roadmapsLoading, setRoadmapsLoading] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
-    loadCommunityData();
+    setOffset(0);
+    setHasMore(true);
+    loadCommunityData(false);
+  }, [selectedFilter, selectedSkill]);
+
+  useEffect(() => {
+    if (selectedFilter === 'my_topics' && userRoadmaps.length === 0) {
+      loadUserRoadmaps();
+    }
   }, [selectedFilter]);
 
-  const loadCommunityData = async () => {
+  const loadUserRoadmaps = async () => {
     try {
-      setLoading(true);
-      
-      // Load user roadmaps if needed
-      if (selectedFilter === 'my_topics' && userRoadmaps.length === 0) {
-        try {
-          const roadmaps = await getUserRoadmaps();
-          setUserRoadmaps(roadmaps);
-        } catch (error) {
-          console.error('Load roadmaps error:', error);
-        }
+      setRoadmapsLoading(true);
+      const roadmaps = await getUserRoadmaps();
+      setUserRoadmaps(roadmaps);
+    } catch (error) {
+      console.error('Load roadmaps error:', error);
+    } finally {
+      setRoadmapsLoading(false);
+    }
+  };
+
+  const loadCommunityData = async (isLoadMore: boolean = false) => {
+    try {
+      if (isLoadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setOffset(0);
+        setHasMore(true);
       }
       
-      console.log('Loading community data with filter:', selectedFilter, 'skill:', selectedSkill);
+      const currentOffset = isLoadMore ? offset : 0;
+      
+      console.log('Loading community data with filter:', selectedFilter, 'skill:', selectedSkill, 'offset:', currentOffset);
       const [communityStats, communityPosts] = await Promise.all([
         getCommunityStats(),
-        getCommunityPosts(20, 0, undefined, selectedFilter, selectedSkill || undefined)
+        getCommunityPosts(20, currentOffset, undefined, selectedFilter, selectedSkill || undefined)
       ]);
       
       console.log('Loaded posts:', communityPosts.length);
       
       setStats(communityStats);
-      setPosts(communityPosts);
+      
+      if (isLoadMore) {
+        // Yeni gönderileri mevcut listeye ekle
+        setPosts(prevPosts => [...prevPosts, ...communityPosts]);
+        setOffset(currentOffset + 20);
+      } else {
+        // İlk yükleme - listeyi değiştir
+        setPosts(communityPosts);
+        setOffset(20);
+      }
+      
+      // Daha fazla gönderi var mı kontrol et
+      setHasMore(communityPosts.length === 20);
+      
     } catch (error) {
       console.error('Community data error:', error);
       Alert.alert('Hata', 'Topluluk verileri yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       setRefreshing(false);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadCommunityData();
+    loadCommunityData(false);
+  };
+
+  const loadMore = () => {
+    if (hasMore && !loadingMore && !loading) {
+      loadCommunityData(true);
+    }
   };
 
   const handleLikePost = async (postId: number) => {
     try {
       await likePost(postId);
       // Refresh posts to get updated like count
-      loadCommunityData();
+      setOffset(0);
+      setHasMore(true);
+      loadCommunityData(false);
     } catch (error) {
       console.error('Like post error:', error);
       Alert.alert('Hata', 'Beğeni işlemi başarısız oldu');
@@ -150,7 +194,9 @@ export default function CommunityScreen({ navigation }: Props) {
       setComments(postComments);
       
       // Refresh posts to update reply count
-      loadCommunityData();
+      setOffset(0);
+      setHasMore(true);
+      loadCommunityData(false);
     } catch (error) {
       console.error('Add comment error:', error);
       Alert.alert('Hata', 'Yorum eklenirken bir hata oluştu');
@@ -331,6 +377,31 @@ export default function CommunityScreen({ navigation }: Props) {
         </ScrollView>
       </View>
 
+      {/* Selected Skill Header */}
+      {selectedSkill && (
+        <View style={styles.selectedSkillHeader}>
+          <View style={styles.selectedSkillContent}>
+            <Ionicons name="code" size={20} color="#3b82f6" />
+            <Text style={styles.selectedSkillText}>
+              {selectedSkill} konusu gösteriliyor
+            </Text>
+            <TouchableOpacity 
+              style={styles.clearFilterButton}
+              onPress={() => {
+                setSelectedSkill(null);
+                setSelectedFilter('latest');
+                setOffset(0);
+                setHasMore(true);
+                setTimeout(() => {
+                  loadCommunityData(false);
+                }, 100);
+              }}
+            >
+              <Ionicons name="close-circle" size={20} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
 
       {/* Posts List */}
@@ -347,6 +418,16 @@ export default function CommunityScreen({ navigation }: Props) {
             colors={['#3B82F6']}
           />
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMoreContainer}>
+              <ActivityIndicator size="small" color="#3b82f6" />
+              <Text style={styles.loadingMoreText}>Daha fazla gönderi yükleniyor...</Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           selectedFilter === 'my_topics' ? (
             <View style={styles.emptyContainer}>
@@ -359,30 +440,43 @@ export default function CommunityScreen({ navigation }: Props) {
                 </Text>
                 {userRoadmaps.length > 0 ? (
                   <View style={styles.roadmapList}>
-                    {userRoadmaps.map((roadmap, index) => (
-                      <TouchableOpacity 
-                        key={roadmap.id} 
-                        style={styles.roadmapItem}
-                        onPress={() => {
-                          // Bu roadmap'in skill'ine göre gönderileri filtrele
-                          const skillName = roadmap.skill_name || roadmap.title.split()[0];
-                          console.log('Selected skill:', skillName);
-                          setSelectedSkill(skillName);
-                          setSelectedFilter('latest');
-                          // Hemen yükle
-                          setTimeout(() => {
-                            loadCommunityData();
-                          }, 100);
-                        }}
-                      >
-                        <Ionicons name="bookmark" size={20} color="#10b981" />
-                        <View style={styles.roadmapInfo}>
-                          <Text style={styles.roadmapTitle}>{roadmap.skill_name || roadmap.title}</Text>
-                          <Text style={styles.roadmapSubtitle}>{roadmap.title}</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color="#6b7280" />
-                      </TouchableOpacity>
-                    ))}
+                    {userRoadmaps.map((roadmap, index) => {
+                      // Skill ismini roadmap title'ından çıkar
+                      const skillName = roadmap.title.split(' ')[0] || roadmap.title;
+                      return (
+                        <TouchableOpacity 
+                          key={roadmap.id} 
+                          style={styles.roadmapItem}
+                          onPress={() => {
+                            console.log('Selected skill:', skillName);
+                            setSelectedSkill(skillName);
+                            setSelectedFilter('latest');
+                            setOffset(0);
+                            setHasMore(true);
+                            // Hemen yükle
+                            setTimeout(() => {
+                              loadCommunityData(false);
+                            }, 100);
+                          }}
+                        >
+                          <Ionicons name="bookmark" size={20} color="#10b981" />
+                          <View style={{flex: 1, marginLeft: 12}}>
+                            <Text style={{fontSize: 16, fontWeight: '600', color: '#1f2937'}}>
+                              {skillName}
+                            </Text>
+                            <Text style={{fontSize: 12, color: '#6b7280', marginTop: 2}}>
+                              {roadmap.title}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={16} color="#6b7280" />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : roadmapsLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#10b981" />
+                    <Text style={styles.loadingText}>Konularınız yükleniyor...</Text>
                   </View>
                 ) : (
                   <View style={styles.emptyActions}>
@@ -1031,5 +1125,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 2,
+  },
+  selectedSkillHeader: {
+    backgroundColor: '#e0f2fe',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#d1d5db',
+  },
+  selectedSkillContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectedSkillText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#3b82f6',
+    marginLeft: 8,
+    flex: 1,
+  },
+  clearFilterButton: {
+    padding: 5,
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  loadingMoreText: {
+    marginLeft: 8,
+    color: '#6b7280',
+    fontSize: 14,
   },
 }); 

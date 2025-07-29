@@ -12,12 +12,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getDashboardStats, getUserRoadmaps } from '../services/api';
 import { DashboardStats, RoadmapSummary } from '../types';
+import { GamificationCard } from '../components/GamificationCard';
+import { useGamification } from '../contexts/GamificationContext';
 
 const DashboardScreen = ({ navigation }: { navigation: any }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [roadmaps, setRoadmaps] = useState<RoadmapSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { recordActivity } = useGamification();
 
   const loadDashboardData = async () => {
     try {
@@ -31,6 +34,9 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
       
       setStats(dashboardStats);
       setRoadmaps(userRoadmaps);
+      
+      // Gamification aktivitesini kaydet
+      await recordActivity();
     } catch (error) {
       console.error('Dashboard data load error:', error);
       Alert.alert('Hata', 'Dashboard verileri yüklenemedi');
@@ -197,6 +203,9 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
             </View>
           </View>
         )}
+
+        {/* Gamification Section */}
+        <GamificationCard compact />
 
         {/* Roadmaps Section */}
         <View style={styles.section}>

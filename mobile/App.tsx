@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import { Platform, Alert } from 'react-native';
 import { RootStackParamList } from './src/navigation/types';
 import { PremiumProvider } from './src/contexts/PremiumContext';
+import { GamificationProvider } from './src/contexts/GamificationContext';
 import { registerPushToken, TokenManager } from './src/services/api';
 import HomeScreen from './src/screens/HomeScreen';
 import AssessmentScreen from './src/screens/AssessmentScreen';
@@ -25,6 +26,9 @@ import MyCommunityScreen from './src/screens/MyCommunityScreen';
 import ExploreScreen from './src/screens/ExploreScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CreatePostScreen from './src/screens/CreatePostScreen'; // Yeni eklendi
+import PomodoroScreen from './src/screens/PomodoroScreen'; // Pomodoro timer
+import CalendarScreen from './src/screens/CalendarScreen'; // Calendar & planning
+import TrialWrapper from './src/components/TrialWrapper'; // Trial wrapper
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -81,6 +85,19 @@ async function registerForPushNotificationsAsync() {
 
 export default function App() {
   useEffect(() => {
+    // IAP başlat
+    const initializeIAP = async () => {
+      try {
+        const { initConnection } = await import('react-native-iap');
+        await initConnection();
+        console.log('✅ IAP initialized in App.tsx');
+      } catch (error) {
+        console.error('❌ IAP initialization failed:', error);
+      }
+    };
+    
+    initializeIAP();
+    
     registerForPushNotificationsAsync().then(token => {
       if (token) {
         registerPushToken({
@@ -93,7 +110,8 @@ export default function App() {
 
   return (
     <PremiumProvider>
-      <NavigationContainer>
+      <GamificationProvider>
+        <NavigationContainer>
         <StatusBar style="auto" />
         <Stack.Navigator
           initialRouteName="Home"
@@ -101,22 +119,116 @@ export default function App() {
             headerShown: false,
           }}
         >
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Assessment" component={AssessmentScreen} />
-          <Stack.Screen name="Roadmap" component={RoadmapScreen} />
-          <Stack.Screen name="RoadmapGeneration" component={RoadmapGenerationScreen} />
-          <Stack.Screen name="Dashboard" component={DashboardScreen} />
-          <Stack.Screen name="RoadmapDetail" component={RoadmapDetailScreen} />
+          <Stack.Screen 
+            name="Home" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <HomeScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="Assessment" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <AssessmentScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="Roadmap" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <RoadmapScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="RoadmapGeneration" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <RoadmapGenerationScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="Dashboard" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <DashboardScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="RoadmapDetail" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <RoadmapDetailScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
           <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
           <Stack.Screen name="NotificationHistory" component={NotificationHistoryScreen} />
           <Stack.Screen name="Paywall" component={PaywallScreen} />
-          <Stack.Screen name="Community" component={CommunityScreen} />
-          <Stack.Screen name="MyCommunity" component={MyCommunityScreen} />
-          <Stack.Screen name="Explore" component={ExploreScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+          <Stack.Screen 
+            name="Community" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <CommunityScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="MyCommunity" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <MyCommunityScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="Explore" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <ExploreScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="Profile" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <ProfileScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="CreatePost" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <CreatePostScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="Pomodoro" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <PomodoroScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
+          <Stack.Screen 
+            name="Calendar" 
+            component={(props: any) => (
+              <TrialWrapper navigation={props.navigation}>
+                <CalendarScreen {...props} />
+              </TrialWrapper>
+            )} 
+          />
         </Stack.Navigator>
       </NavigationContainer>
+      </GamificationProvider>
     </PremiumProvider>
   );
 }

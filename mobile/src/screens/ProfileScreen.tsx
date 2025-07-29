@@ -11,8 +11,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { getUserProfile, getOwnProfile } from '../services/api';
+import { TokenManager } from '../services/api';
 import { UserProfile } from '../types';
+import { GamificationCard } from '../components/GamificationCard';
+import { AchievementsList } from '../components/AchievementsList';
+import { useGamification } from '../contexts/GamificationContext';
 
 interface Props {
   navigation: any;
@@ -27,20 +30,45 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { gamificationData } = useGamification();
 
   const userId = route.params?.userId; // undefined = kendi profili
 
   const loadProfile = async () => {
     try {
-      let profileData: UserProfile;
-      if (userId) {
-        // Başkasının profili
-        profileData = await getUserProfile(userId);
-      } else {
-        // Kendi profili
-        profileData = await getOwnProfile();
+      // Basit profil yükleme - TokenManager'dan user bilgisini al
+      const userData = await TokenManager.getUser();
+      if (userData) {
+        setProfile({
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          created_at: userData.created_at,
+          subscription_type: userData.subscription_type || 'free',
+          gamification: {
+            total_xp: gamificationData.totalXp,
+            current_level: gamificationData.currentLevel,
+            daily_xp_today: 0,
+            current_streak: gamificationData.currentStreak,
+            longest_streak: gamificationData.longestStreak,
+            level_name: `Seviye ${gamificationData.currentLevel}`,
+            next_level_xp: gamificationData.currentLevel * 100,
+            achievements_count: gamificationData.achievements.filter(a => a.isUnlocked).length,
+          },
+          achievements: gamificationData.achievements.filter(a => a.isUnlocked).map(a => ({
+            id: parseInt(a.id),
+            name: a.name,
+            description: a.description,
+            icon: a.icon,
+            category: 'general',
+            earned_at: a.unlockedAt,
+          })),
+          total_roadmaps: 0,
+          completed_roadmaps: 0,
+          total_study_hours: Math.floor(gamificationData.totalStudyMinutes / 60),
+          is_own_profile: !userId,
+        });
       }
-      setProfile(profileData);
     } catch (error) {
       console.error('Profile load error:', error);
       Alert.alert('Hata', 'Profil yüklenemedi');
@@ -52,7 +80,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
 
   useEffect(() => {
     loadProfile();
-  }, [userId]);
+  }, [userId, gamificationData]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -148,6 +176,40 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
           </Text>
         </View>
 
+        {/* Gamification Section */}
+        <GamificationCard />
+        
+        {/* Quick Stats */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📊 Hızlı İstatistikler</Text>
+          <View style={styles.quickStatsGrid}>
+            <View style={styles.quickStatCard}>
+              <Ionicons name="flame" size={24} color="#ff6b6b" />
+              <Text style={styles.quickStatValue}>{gamificationData.currentStreak}</Text>
+              <Text style={styles.quickStatLabel}>Güncel Streak</Text>
+            </View>
+            <View style={styles.quickStatCard}>
+              <Ionicons name="star" size={24} color="#ffd700" />
+              <Text style={styles.quickStatValue}>{gamificationData.longestStreak}</Text>
+              <Text style={styles.quickStatLabel}>En Uzun Streak</Text>
+            </View>
+            <View style={styles.quickStatCard}>
+              <Ionicons name="trophy" size={24} color="#ff9a9e" />
+              <Text style={styles.quickStatValue}>
+                {gamificationData.achievements.filter(a => a.isUnlocked).length}
+              </Text>
+              <Text style={styles.quickStatLabel}>Kazanılan Rozet</Text>
+            </View>
+            <View style={styles.quickStatCard}>
+              <Ionicons name="time" size={24} color="#4facfe" />
+              <Text style={styles.quickStatValue}>
+                {Math.floor(gamificationData.totalStudyMinutes / 60)}
+              </Text>
+              <Text style={styles.quickStatLabel}>Çalışma Saati</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Level & XP Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🎮 Seviye & XP</Text>
@@ -226,34 +288,8 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Achievements Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🏆 Rozetler ({profile.achievements.length})</Text>
-          {profile.achievements.length > 0 ? (
-            <View style={styles.achievementsGrid}>
-              {profile.achievements.map((achievement) => (
-                <View key={achievement.id} style={styles.achievementCard}>
-                  <Text style={styles.achievementIcon}>{achievement.icon}</Text>
-                  <Text style={styles.achievementName}>{achievement.name}</Text>
-                  <Text style={styles.achievementDescription}>
-                    {achievement.description}
-                  </Text>
-                  <Text style={styles.achievementDate}>
-                    {new Date(achievement.earned_at!).toLocaleDateString('tr-TR')}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyAchievements}>
-              <Text style={styles.emptyAchievementsText}>
-                {profile.is_own_profile
-                  ? 'Henüz rozet kazanmadınız 🎯'
-                  : 'Henüz rozet kazanmamış'}
-              </Text>
-              <Text style={styles.emptyAchievementsSubtext}>
-                Günlük görevleri tamamlayarak rozet kazanın!
-              </Text>
-            </View>
-          )}
+          <Text style={styles.sectionTitle}>🏆 Başarı Rozetleri</Text>
+          <AchievementsList compact />
         </View>
       </ScrollView>
     </LinearGradient>
@@ -498,6 +534,37 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Quick stats styles
+  quickStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  quickStatCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    padding: 16,
+    width: '48%',
+    alignItems: 'center',
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  quickStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 
