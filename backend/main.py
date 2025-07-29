@@ -17,9 +17,19 @@ import openai
 import json
 import re
 from difflib import SequenceMatcher
+import requests
+import asyncio
+import threading
+import time
 
 # Load environment variables
 load_dotenv()
+
+# Expo Push API Configuration
+EXPO_PUSH_API_URL = "https://exp.host/--/api/v2/push/send"
+
+# Global scheduler flag
+notification_scheduler_running = False
 
 app = FastAPI(
     title="SkillPath API",
@@ -616,6 +626,12 @@ async def startup_event():
     db = SessionLocal()
     try:
         init_sample_courses(db)
+        print("✅ Örnek kurslar yüklendi")
+        
+        # Bildirim scheduler'ını başlat
+        start_notification_scheduler()
+        print("✅ Bildirim scheduler başlatıldı")
+        
     finally:
         db.close()
 
@@ -2084,19 +2100,162 @@ async def get_daily_reminder_internal(user: User, db: Session):
     }
 
 async def send_push_notification(user_id: int, title: str, message: str, db: Session):
-    """Push notification gönder"""
+    """Push notification gönder - Expo Push API kullanarak"""
     try:
         # Kullanıcının push token'larını getir
         tokens = db.query(PushToken).filter(PushToken.user_id == user_id).all()
         
         if not tokens:
+            print(f"No push tokens found for user {user_id}")
             return
         
-        # Expo Push API kullanarak bildirim gönder
-        # Bu kısım gerçek implementasyon için Expo Push API ile entegre edilebilir
+        # Expo Push API için mesaj hazırla
+        push_messages = []
         for token in tokens:
-            # Expo Push API çağrısı burada yapılacak
-            print(f"Push notification would be sent to {token.push_token}: {title} - {message}")
+            push_message = {
+                "to": token.push_token,
+                "title": title,
+                "body": message,
+                "sound": "default",
+                "priority": "high",
+                "data": {
+                    "type": "notification",
+                    "user_id": user_id
+                }
+            }
+            push_messages.append(push_message)
+        
+        # Expo Push API'ye gönder
+        headers = {
+            "Accept": "application/json",
+            "Accept-encoding": "gzip, deflate",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(
+            EXPO_PUSH_API_URL,
+            headers=headers,
+            data=json.dumps(push_messages)
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"Push notification sent successfully to user {user_id}")
+            print(f"Expo response: {result}")
+        else:
+            print(f"Failed to send push notification to user {user_id}")
+            print(f"Response status: {response.status_code}")
+            print(f"Response text: {response.text}")
             
     except Exception as e:
         print(f"Send push notification error: {e}") 
+
+def start_notification_scheduler():
+    """Bildirim scheduler'ını başlat"""
+    global notification_scheduler_running
+    
+    if notification_scheduler_running:
+        return
+    
+    notification_scheduler_running = True
+    
+    def run_scheduler():
+        while notification_scheduler_running:
+            try:
+                # Her dakika kontrol et
+                time.sleep(60)
+                
+                # Şu anki saati al
+                now = datetime.now()
+                current_time = now.strftime("%H:%M")
+                
+                print(f"🕐 Scheduler kontrol: {current_time}")
+                
+                # Bildirim gönderme zamanı gelen kullanıcıları bul
+                db = next(get_db())
+                users_to_notify = db.query(User, NotificationPreference).join(
+                    NotificationPreference, User.id == NotificationPreference.user_id
+                ).filter(
+                    NotificationPreference.daily_reminder_enabled == True,
+                    NotificationPreference.daily_reminder_time == current_time
+                ).all()
+                
+                print(f"📱 {len(users_to_notify)} kullanıcıya bildirim gönderilecek")
+                
+                for user, prefs in users_to_notify:
+                    try:
+                        # Rahatsız etme saatlerini kontrol et
+                        if is_in_do_not_disturb(current_time, prefs.do_not_disturb_start, prefs.do_not_disturb_end):
+                            print(f"🔇 Kullanıcı {user.id} rahatsız etme saatlerinde, bildirim gönderilmedi")
+                            continue
+                        
+                        # Günlük hatırlatma oluştur ve gönder
+                        asyncio.run(send_daily_notification_to_user(user, db))
+                        print(f"✅ Kullanıcı {user.id} için bildirim gönderildi")
+                        
+                    except Exception as e:
+                        print(f"❌ Kullanıcı {user.id} için bildirim hatası: {e}")
+                        continue
+                
+            except Exception as e:
+                print(f"❌ Scheduler hatası: {e}")
+                time.sleep(60)  # Hata durumunda 1 dakika bekle
+    
+    # Scheduler'ı ayrı thread'de çalıştır
+    scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+    scheduler_thread.start()
+    print("🔄 Bildirim scheduler thread başlatıldı")
+
+def is_in_do_not_disturb(current_time: str, dnd_start: str, dnd_end: str) -> bool:
+    """Şu anki zaman rahatsız etme saatlerinde mi kontrol et"""
+    try:
+        current_hour, current_minute = map(int, current_time.split(':'))
+        start_hour, start_minute = map(int, dnd_start.split(':'))
+        end_hour, end_minute = map(int, dnd_end.split(':'))
+        
+        current_minutes = current_hour * 60 + current_minute
+        start_minutes = start_hour * 60 + start_minute
+        end_minutes = end_hour * 60 + end_minute
+        
+        # Gece yarısını geçen rahatsız etme saatleri için
+        if start_minutes > end_minutes:
+            return current_minutes >= start_minutes or current_minutes <= end_minutes
+        else:
+            return start_minutes <= current_minutes <= end_minutes
+            
+    except Exception as e:
+        print(f"Rahatsız etme saati kontrol hatası: {e}")
+        return False
+
+async def send_daily_notification_to_user(user: User, db: Session):
+    """Kullanıcıya günlük bildirim gönder"""
+    try:
+        # Günlük hatırlatma oluştur
+        reminder_response = await get_daily_reminder_internal(user, db)
+        
+        if reminder_response["success"]:
+            # Bildirim kaydı oluştur
+            notification = Notification(
+                user_id=user.id,
+                title=reminder_response["reminder_data"]["title"],
+                message=reminder_response["reminder_data"]["message"],
+                notification_type="daily_reminder",
+                roadmap_title=reminder_response["reminder_data"].get("roadmap_title"),
+                sent_at=datetime.now()
+            )
+            db.add(notification)
+            db.commit()
+            
+            # Push notification gönder
+            await send_push_notification(
+                user.id, 
+                reminder_response["reminder_data"]["title"], 
+                reminder_response["reminder_data"]["message"], 
+                db
+            )
+            
+            print(f"📨 Günlük bildirim gönderildi: {user.id}")
+            
+    except Exception as e:
+        print(f"Günlük bildirim gönderme hatası: {e}")
+        db.rollback()
