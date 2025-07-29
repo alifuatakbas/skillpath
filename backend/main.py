@@ -630,9 +630,12 @@ async def startup_event():
         init_sample_courses(db)
         print("✅ Örnek kurslar yüklendi")
         
-        # Bildirim scheduler'ını başlat
-        start_notification_scheduler()
-        print("✅ Bildirim scheduler başlatıldı")
+        # Bildirim scheduler'ını başlat (eğer fonksiyon varsa)
+        try:
+            start_notification_scheduler()
+            print("✅ Bildirim scheduler başlatıldı")
+        except Exception as e:
+            print(f"❌ Bildirim scheduler hatası: {e}")
         
     finally:
         db.close()
@@ -1137,7 +1140,9 @@ async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: 
             try:
                 skill = db.query(Skill).filter(Skill.id == roadmap.skill_id).first()
                 skill_name = skill.name if skill else None
-            except:
+                print(f"Roadmap {roadmap.id}: skill_id={roadmap.skill_id}, skill_name={skill_name}")
+            except Exception as e:
+                print(f"Error getting skill name for roadmap {roadmap.id}: {e}")
                 skill_name = None
             # Bu roadmap'in step'lerini say
             total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap.id).count()
@@ -1533,6 +1538,7 @@ async def get_community_posts(
         
         # Filter by skill name if provided
         if skill_name:
+            print(f"Filtering posts by skill_name: {skill_name}")
             query = query.filter(CommunityPost.skill_name == skill_name)
         
         # Apply filtering and sorting based on filter type

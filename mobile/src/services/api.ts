@@ -261,13 +261,15 @@ export const getCommunityPosts = async (
   limit: number = 20,
   offset: number = 0,
   postType?: string,
-  filterType: string = "latest"
+  filterType: string = "latest",
+  skillName?: string
 ): Promise<any[]> => {
   const params = new URLSearchParams({
     limit: limit.toString(),
     offset: offset.toString(),
     filter_type: filterType,
-    ...(postType && { post_type: postType })
+    ...(postType && { post_type: postType }),
+    ...(skillName && { skill_name: skillName })
   });
   return apiClient.get<any[]>(`/api/community/posts?${params}`);
 };

@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
-import { getCommunityStats, getCommunityPosts, likePost, createComment, getPostComments } from '../services/api';
+import { getCommunityStats, getCommunityPosts, likePost, createComment, getPostComments, getUserRoadmaps } from '../services/api';
 
 type CommunityScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Community'>;
 
@@ -66,6 +66,9 @@ export default function CommunityScreen({ navigation }: Props) {
   const [comments, setComments] = useState<CommunityComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
+  const [userRoadmaps, setUserRoadmaps] = useState<any[]>([]);
+  const [showRoadmapList, setShowRoadmapList] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
 
   useEffect(() => {
     loadCommunityData();
@@ -74,10 +77,24 @@ export default function CommunityScreen({ navigation }: Props) {
   const loadCommunityData = async () => {
     try {
       setLoading(true);
+      
+      // Load user roadmaps if needed
+      if (selectedFilter === 'my_topics' && userRoadmaps.length === 0) {
+        try {
+          const roadmaps = await getUserRoadmaps();
+          setUserRoadmaps(roadmaps);
+        } catch (error) {
+          console.error('Load roadmaps error:', error);
+        }
+      }
+      
+      console.log('Loading community data with filter:', selectedFilter, 'skill:', selectedSkill);
       const [communityStats, communityPosts] = await Promise.all([
         getCommunityStats(),
-        getCommunityPosts(20, 0, undefined, selectedFilter)
+        getCommunityPosts(20, 0, undefined, selectedFilter, selectedSkill || undefined)
       ]);
+      
+      console.log('Loaded posts:', communityPosts.length);
       
       setStats(communityStats);
       setPosts(communityPosts);
@@ -331,26 +348,70 @@ export default function CommunityScreen({ navigation }: Props) {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <LinearGradient colors={['#f8fafc', '#e2e8f0']} style={styles.emptyGradient}>
-              <Ionicons name="rocket-outline" size={80} color="#3b82f6" />
-              <Text style={styles.emptyTitle}>Topluluk Henüz Başlıyor! 🚀</Text>
-              <Text style={styles.emptyDescription}>
-                İlk gönderiyi sen yap ve topluluğu başlat! Sorular sor, deneyimlerini paylaş, 
-                diğer öğrencilerle bağlantı kur.
-              </Text>
-              <View style={styles.emptyActions}>
-                <TouchableOpacity style={styles.emptyButton} onPress={() => setSelectedFilter('my_topics')}>
-                  <Ionicons name="book" size={20} color="#ffffff" />
-                  <Text style={styles.emptyButtonText}>Konularımı Keşfet</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.emptySecondaryButton} onPress={() => setSelectedFilter('trending')}>
-                  <Ionicons name="trending-up" size={20} color="#3b82f6" />
-                  <Text style={styles.emptySecondaryButtonText}>Trend Konuları Keşfet</Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </View>
+          selectedFilter === 'my_topics' ? (
+            <View style={styles.emptyContainer}>
+              <LinearGradient colors={['#f8fafc', '#e2e8f0']} style={styles.emptyGradient}>
+                <Ionicons name="book-outline" size={80} color="#10b981" />
+                <Text style={styles.emptyTitle}>Konularınızı Seçin 📚</Text>
+                <Text style={styles.emptyDescription}>
+                  Hangi konuyla ilgili gönderileri görmek istiyorsunuz? 
+                  Roadmap'lerinizden birini seçin.
+                </Text>
+                {userRoadmaps.length > 0 ? (
+                  <View style={styles.roadmapList}>
+                    {userRoadmaps.map((roadmap, index) => (
+                      <TouchableOpacity 
+                        key={roadmap.id} 
+                        style={styles.roadmapItem}
+                        onPress={() => {
+                          // Bu roadmap'in skill'ine göre gönderileri filtrele
+                          const skillName = roadmap.skill_name || roadmap.title.split()[0];
+                          console.log('Selected skill:', skillName);
+                          setSelectedSkill(skillName);
+                          setSelectedFilter('latest');
+                          // Hemen yükle
+                          setTimeout(() => {
+                            loadCommunityData();
+                          }, 100);
+                        }}
+                      >
+                        <Ionicons name="bookmark" size={20} color="#10b981" />
+                        <View style={styles.roadmapInfo}>
+                          <Text style={styles.roadmapTitle}>{roadmap.skill_name || roadmap.title}</Text>
+                          <Text style={styles.roadmapSubtitle}>{roadmap.title}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color="#6b7280" />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.emptyActions}>
+                    <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('RoadmapGeneration' as any)}>
+                      <Ionicons name="add-circle" size={20} color="#ffffff" />
+                      <Text style={styles.emptyButtonText}>İlk Roadmap'ini Oluştur</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </LinearGradient>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <LinearGradient colors={['#f8fafc', '#e2e8f0']} style={styles.emptyGradient}>
+                <Ionicons name="rocket-outline" size={80} color="#3b82f6" />
+                <Text style={styles.emptyTitle}>Topluluk Henüz Başlıyor! 🚀</Text>
+                <Text style={styles.emptyDescription}>
+                  İlk gönderiyi sen yap ve topluluğu başlat! Sorular sor, deneyimlerini paylaş, 
+                  diğer öğrencilerle bağlantı kur.
+                </Text>
+                <View style={styles.emptyActions}>
+                  <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePost}>
+                    <Ionicons name="add-circle" size={20} color="#ffffff" />
+                    <Text style={styles.emptyButtonText}>İlk Gönderiyi Yap</Text>
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            </View>
+          )
         }
       />
 
@@ -937,5 +998,38 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 20,
     paddingHorizontal: 20,
+  },
+  roadmapList: {
+    width: '100%',
+    marginTop: 20,
+  },
+  roadmapItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  roadmapTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  roadmapInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  roadmapSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
   },
 }); 
