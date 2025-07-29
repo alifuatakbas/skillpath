@@ -54,7 +54,7 @@ app.add_middleware(
 )
 
 # Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:password@localhost:3306/skillpath")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:LuFLwdfAtpfkyMMqyyPXKwRgDRWtDFpV@switchyard.proxy.rlwy.net:14684/railway")
 
 # Create SQLAlchemy engine
 engine = create_engine(DATABASE_URL, echo=True)
@@ -72,8 +72,10 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Integer, default=1)  # tinyint(1) in MySQL
     is_superuser = Column(Integer, default=0)  # tinyint(1) in MySQL
-    subscription_type = Column(String(20), default="free")  # free, premium
+    subscription_type = Column(String(20), default="free")  # free, premium, trial
     subscription_expires = Column(DateTime(timezone=True), nullable=True)
+    trial_start_date = Column(DateTime(timezone=True), nullable=True)  # Trial başlangıç tarihi
+    trial_end_date = Column(DateTime(timezone=True), nullable=True)  # Trial bitiş tarihi
     preferred_language = Column(String(10), default="tr")  # tr, en
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -503,6 +505,27 @@ class NotificationPreferenceResponse(BaseModel):
 class PushTokenRequest(BaseModel):
     push_token: str
     device_type: str
+
+class TrialStatusResponse(BaseModel):
+    days_left: int
+    expiry_date: Optional[str] = None
+    is_active: bool
+
+class PremiumPurchaseRequest(BaseModel):
+    product_id: str
+    transaction_id: Optional[str] = None
+    receipt: Optional[str] = None
+    platform: Optional[str] = None
+
+class StartTrialRequest(BaseModel):
+    product_id: str
+    transaction_id: str
+    receipt: str
+
+class PremiumPurchaseResponse(BaseModel):
+    success: bool
+    message: str
+    expires_at: Optional[str] = None
 
 class NotificationResponse(BaseModel):
     id: int
@@ -2297,6 +2320,142 @@ def is_in_do_not_disturb(current_time: str, dnd_start: str, dnd_end: str) -> boo
         return False
 
 async def send_daily_notification_to_user(user: User, db: Session):
+    # ... existing code ...
+
+# Premium endpoints
+@app.get("/api/premium/trial-status", response_model=TrialStatusResponse)
+async def get_trial_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Kullanıcının trial durumunu kontrol et"""
+    try:
+        now = datetime.utcnow()
+        
+        # Trial başlatılmamışsa başlat
+        if not current_user.trial_start_date:
+            trial_start = now
+            trial_end = trial_start + timedelta(days=3)
+            
+            current_user.trial_start_date = trial_start
+            current_user.trial_end_date = trial_end
+            current_user.subscription_type = "trial"
+            db.commit()
+            
+            days_left = 3
+            is_active = True
+        else:
+            # Trial süresini hesapla
+            trial_end = current_user.trial_end_date
+            if trial_end and now < trial_end:
+                days_left = (trial_end - now).days
+                is_active = True
+            else:
+                days_left = 0
+                is_active = False
+                # Trial süresi dolmuşsa free yap
+                if current_user.subscription_type == "trial":
+                    current_user.subscription_type = "free"
+                    db.commit()
+        
+        return TrialStatusResponse(
+            days_left=days_left,
+            expiry_date=current_user.trial_end_date.isoformat() if current_user.trial_end_date else None,
+            is_active=is_active
+        )
+    except Exception as e:
+        print(f"Error getting trial status: {e}")
+        raise HTTPException(status_code=500, detail="Trial status check failed")
+
+@app.post("/api/premium/start-trial", response_model=PremiumPurchaseResponse)
+async def start_trial(
+    request: StartTrialRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """3 günlük trial başlat"""
+    try:
+        # Trial başlat
+        trial_start = datetime.utcnow()
+        trial_end = trial_start + timedelta(days=3)
+        
+        current_user.trial_start_date = trial_start
+        current_user.trial_end_date = trial_end
+        current_user.subscription_type = "trial"
+        
+        db.commit()
+        
+        return PremiumPurchaseResponse(
+            success=True,
+            message="3 günlük trial başlatıldı",
+            expires_at=trial_end.isoformat()
+        )
+    except Exception as e:
+        print(f"Error starting trial: {e}")
+        raise HTTPException(status_code=500, detail="Trial start failed")
+
+@app.post("/api/premium/purchase", response_model=PremiumPurchaseResponse)
+async def purchase_premium(
+    request: PremiumPurchaseRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Premium abonelik satın al"""
+    try:
+        # Product ID'ye göre süre hesapla
+        if "monthly" in request.product_id:
+            expires_at = datetime.utcnow() + timedelta(days=30)
+        elif "yearly" in request.product_id:
+            expires_at = datetime.utcnow() + timedelta(days=365)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid product ID")
+        
+        # Kullanıcıyı premium yap
+        current_user.subscription_type = "premium"
+        current_user.subscription_expires = expires_at
+        
+        # Trial bilgilerini temizle
+        current_user.trial_start_date = None
+        current_user.trial_end_date = None
+        
+        db.commit()
+        
+        return PremiumPurchaseResponse(
+            success=True,
+            message="Premium subscription activated successfully",
+            expires_at=expires_at.isoformat()
+        )
+    except Exception as e:
+        print(f"Error processing premium purchase: {e}")
+        raise HTTPException(status_code=500, detail="Premium purchase failed")
+
+@app.get("/api/premium/status")
+async def get_premium_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Kullanıcının premium durumunu kontrol et"""
+    try:
+        now = datetime.utcnow()
+        is_premium = False
+        
+        # Trial kontrolü
+        if current_user.subscription_type == "trial" and current_user.trial_end_date:
+            if now < current_user.trial_end_date:
+                is_premium = True
+        
+        # Premium kontrolü
+        elif current_user.subscription_type == "premium" and current_user.subscription_expires:
+            if now < current_user.subscription_expires:
+                is_premium = True
+            else:
+                # Süresi dolmuşsa free yap
+                current_user.subscription_type = "free"
+                current_user.subscription_expires = None
+                db.commit()
+        
+        return {
+            "is_premium": is_premium,
+            "subscription_type": current_user.subscription_type,
+            "expires_at": current_user.subscription_expires.isoformat() if current_user.subscription_expires else None
+        }
+    except Exception as e:
+        print(f"Error getting premium status: {e}")
+        raise HTTPException(status_code=500, detail="Premium status check failed")
     """Kullanıcıya günlük bildirim gönder"""
     try:
         # Günlük hatırlatma oluştur
