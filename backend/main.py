@@ -1507,6 +1507,7 @@ async def get_community_posts(
     offset: int = 0,
     post_type: Optional[str] = None,
     filter_type: Optional[str] = "latest",  # latest, popular, trending, my_topics, my_questions
+    skill_name: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1520,6 +1521,10 @@ async def get_community_posts(
         # Filter by post type if provided
         if post_type and post_type != 'all':
             query = query.filter(CommunityPost.post_type == post_type)
+        
+        # Filter by skill name if provided
+        if skill_name:
+            query = query.filter(CommunityPost.skill_name == skill_name)
         
         # Apply filtering and sorting based on filter type
         if filter_type == "my_topics":
@@ -1560,7 +1565,7 @@ async def get_community_posts(
             query = query.order_by(CommunityPost.created_at.desc())
         elif filter_type == "trending":
             # Sort by replies count (descending) - en çok yorum alan gönderiler
-            query = query.order_by(CommunityPost.replies_count.desc().nullslast())
+            query = query.order_by(CommunityPost.replies_count.desc().nullslast(), CommunityPost.created_at.desc())
         else:
             # Default: latest posts
             query = query.order_by(CommunityPost.created_at.desc())
