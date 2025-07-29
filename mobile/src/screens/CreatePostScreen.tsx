@@ -42,7 +42,7 @@ export default function CreatePostScreen({ navigation }: Props) {
       await createCommunityPost({
         title: title.trim(),
         content: content.trim(),
-        skill_name: skillName.trim() || null,
+        skill_name: skillName.trim() || undefined,
         post_type: postType,
       });
       
@@ -62,7 +62,6 @@ export default function CreatePostScreen({ navigation }: Props) {
   const postTypes = [
     { key: 'question', label: 'Soru', icon: 'help-circle' },
     { key: 'discussion', label: 'Tartışma', icon: 'chatbubbles' },
-    { key: 'tip', label: 'İpucu', icon: 'bulb' },
   ];
 
   return (

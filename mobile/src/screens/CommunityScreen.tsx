@@ -60,8 +60,7 @@ export default function CommunityScreen({ navigation }: Props) {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedTab, setSelectedTab] = useState('all');
-  const [selectedFilter, setSelectedFilter] = useState('latest'); // latest, popular, trending
+  const [selectedFilter, setSelectedFilter] = useState('latest'); // latest, popular, trending, my_topics, my_questions
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [comments, setComments] = useState<CommunityComment[]>([]);
@@ -70,14 +69,14 @@ export default function CommunityScreen({ navigation }: Props) {
 
   useEffect(() => {
     loadCommunityData();
-  }, [selectedTab, selectedFilter]);
+  }, [selectedFilter]);
 
   const loadCommunityData = async () => {
     try {
       setLoading(true);
       const [communityStats, communityPosts] = await Promise.all([
         getCommunityStats(),
-        getCommunityPosts(20, 0, selectedTab === 'all' ? undefined : selectedTab)
+        getCommunityPosts(20, 0, undefined, selectedFilter)
       ]);
       
       setStats(communityStats);
@@ -232,29 +231,42 @@ export default function CommunityScreen({ navigation }: Props) {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Topluluk</Text>
         <TouchableOpacity style={styles.createButton} onPress={handleCreatePost}>
-          <Ionicons name="add" size={24} color="#ffffff" />
+          <Ionicons name="add-circle" size={24} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
-      {/* Stats Summary */}
-      {stats && (
-        <View style={styles.statsContainer}>
-          <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.statsGradient}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.totalMembers || 0}</Text>
-              <Text style={styles.statLabel}>Üye</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.activeToday || 0}</Text>
-              <Text style={styles.statLabel}>Aktif Bugün</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.totalRoadmaps || 0}</Text>
-              <Text style={styles.statLabel}>Roadmap</Text>
-            </View>
-          </LinearGradient>
+      {/* Quick Access Cards */}
+      <View style={styles.quickAccessContainer}>
+        <View style={styles.quickCardsGrid}>
+          <TouchableOpacity style={styles.quickCard} onPress={() => setSelectedFilter('my_questions')}>
+            <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.quickCardGradient}>
+              <Ionicons name="chatbubbles" size={28} color="#ffffff" />
+              <Text style={styles.quickCardTitle}>Sorularım</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.quickCard} onPress={() => setSelectedFilter('my_topics')}>
+            <LinearGradient colors={['#10b981', '#059669']} style={styles.quickCardGradient}>
+              <Ionicons name="book" size={28} color="#ffffff" />
+              <Text style={styles.quickCardTitle}>Konularım</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.quickCard} onPress={() => setSelectedFilter('trending')}>
+            <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.quickCardGradient}>
+              <Ionicons name="trending-up" size={28} color="#ffffff" />
+              <Text style={styles.quickCardTitle}>Trend</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.quickCard} onPress={() => setSelectedFilter('popular')}>
+            <LinearGradient colors={['#8b5cf6', '#7c3aed']} style={styles.quickCardGradient}>
+              <Ionicons name="star" size={28} color="#ffffff" />
+              <Text style={styles.quickCardTitle}>Popüler</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
 
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
@@ -263,11 +275,6 @@ export default function CommunityScreen({ navigation }: Props) {
             style={[styles.filterTab, selectedFilter === 'latest' && styles.activeFilterTab]}
             onPress={() => setSelectedFilter('latest')}
           >
-            <Ionicons 
-              name="time-outline" 
-              size={16} 
-              color={selectedFilter === 'latest' ? '#3b82f6' : '#6b7280'} 
-            />
             <Text style={[styles.filterText, selectedFilter === 'latest' && styles.activeFilterText]}>
               En Yeni
             </Text>
@@ -276,11 +283,6 @@ export default function CommunityScreen({ navigation }: Props) {
             style={[styles.filterTab, selectedFilter === 'popular' && styles.activeFilterTab]}
             onPress={() => setSelectedFilter('popular')}
           >
-            <Ionicons 
-              name="trending-up-outline" 
-              size={16} 
-              color={selectedFilter === 'popular' ? '#3b82f6' : '#6b7280'} 
-            />
             <Text style={[styles.filterText, selectedFilter === 'popular' && styles.activeFilterText]}>
               Popüler
             </Text>
@@ -289,45 +291,30 @@ export default function CommunityScreen({ navigation }: Props) {
             style={[styles.filterTab, selectedFilter === 'trending' && styles.activeFilterTab]}
             onPress={() => setSelectedFilter('trending')}
           >
-            <Ionicons 
-              name="flame-outline" 
-              size={16} 
-              color={selectedFilter === 'trending' ? '#3b82f6' : '#6b7280'} 
-            />
             <Text style={[styles.filterText, selectedFilter === 'trending' && styles.activeFilterText]}>
               Trend
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterTab, selectedFilter === 'my_topics' && styles.activeFilterTab]}
+            onPress={() => setSelectedFilter('my_topics')}
+          >
+            <Text style={[styles.filterText, selectedFilter === 'my_topics' && styles.activeFilterText]}>
+              Konularım
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterTab, selectedFilter === 'my_questions' && styles.activeFilterTab]}
+            onPress={() => setSelectedFilter('my_questions')}
+          >
+            <Text style={[styles.filterText, selectedFilter === 'my_questions' && styles.activeFilterText]}>
+              Sorularım
             </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
-      {/* Post Type Tabs */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'all' && styles.activeTab]}
-          onPress={() => setSelectedTab('all')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'all' && styles.activeTabText]}>
-            Tümü
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'question' && styles.activeTab]}
-          onPress={() => setSelectedTab('question')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'question' && styles.activeTabText]}>
-            Sorular
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'discussion' && styles.activeTab]}
-          onPress={() => setSelectedTab('discussion')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'discussion' && styles.activeTabText]}>
-            Tartışma
-          </Text>
-        </TouchableOpacity>
-      </View>
+
 
       {/* Posts List */}
       <FlatList
@@ -345,12 +332,24 @@ export default function CommunityScreen({ navigation }: Props) {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="chatbubbles-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyTitle}>Henüz gönderi yok</Text>
-            <Text style={styles.emptyText}>İlk gönderiyi sen yap ve topluluğu başlat!</Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePost}>
-              <Text style={styles.emptyButtonText}>İlk Gönderiyi Yap</Text>
-            </TouchableOpacity>
+            <LinearGradient colors={['#f8fafc', '#e2e8f0']} style={styles.emptyGradient}>
+              <Ionicons name="rocket-outline" size={80} color="#3b82f6" />
+              <Text style={styles.emptyTitle}>Topluluk Henüz Başlıyor! 🚀</Text>
+              <Text style={styles.emptyDescription}>
+                İlk gönderiyi sen yap ve topluluğu başlat! Sorular sor, deneyimlerini paylaş, 
+                diğer öğrencilerle bağlantı kur.
+              </Text>
+              <View style={styles.emptyActions}>
+                <TouchableOpacity style={styles.emptyButton} onPress={() => setSelectedFilter('my_topics')}>
+                  <Ionicons name="book" size={20} color="#ffffff" />
+                  <Text style={styles.emptyButtonText}>Konularımı Keşfet</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.emptySecondaryButton} onPress={() => setSelectedFilter('trending')}>
+                  <Ionicons name="trending-up" size={20} color="#3b82f6" />
+                  <Text style={styles.emptySecondaryButtonText}>Trend Konuları Keşfet</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
           </View>
         }
       />
@@ -687,49 +686,72 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     backgroundColor: '#f8fafc',
   },
+  emptyGradient: {
+    alignItems: 'center',
+    padding: 32,
+    borderRadius: 20,
+    marginHorizontal: 20,
+  },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
     marginTop: 20,
-    marginBottom: 8,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   emptyDescription: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#6b7280',
     textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    lineHeight: 24,
+    marginBottom: 24,
+    paddingHorizontal: 10,
+  },
+  emptyActions: {
+    flexDirection: 'row',
+    gap: 12,
   },
   emptyButton: {
     backgroundColor: '#3b82f6',
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   emptyButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  emptySecondaryButton: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+  },
+  emptySecondaryButtonText: {
+    color: '#3b82f6',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   filterContainer: {
     paddingHorizontal: 16,
     marginTop: 16,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   filterTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    marginRight: 10,
+    marginRight: 8,
+    backgroundColor: '#f3f4f6',
   },
   activeFilterTab: {
     backgroundColor: '#3b82f6',
@@ -873,6 +895,40 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 16,
     borderRadius: 16,
+  },
+  quickAccessContainer: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+  },
+  quickCardsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  quickCard: {
+    width: '48%',
+    height: 80,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  quickCardGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  quickCardTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginTop: 6,
+    textAlign: 'center',
   },
   emptyText: {
     fontSize: 14,
