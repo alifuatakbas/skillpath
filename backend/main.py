@@ -2320,7 +2320,37 @@ def is_in_do_not_disturb(current_time: str, dnd_start: str, dnd_end: str) -> boo
         return False
 
 async def send_daily_notification_to_user(user: User, db: Session):
-    # ... existing code ...
+    """Kullanıcıya günlük bildirim gönder"""
+    try:
+        # Günlük hatırlatma oluştur
+        reminder_response = await get_daily_reminder_internal(user, db)
+        
+        if reminder_response["success"]:
+            # Bildirim kaydı oluştur
+            notification = Notification(
+                user_id=user.id,
+                title=reminder_response["reminder_data"]["title"],
+                message=reminder_response["reminder_data"]["message"],
+                notification_type="daily_reminder",
+                roadmap_title=reminder_response["reminder_data"].get("roadmap_title"),
+                sent_at=datetime.now()
+            )
+            db.add(notification)
+            db.commit()
+            
+            # Push notification gönder
+            await send_push_notification(
+                user.id, 
+                reminder_response["reminder_data"]["title"], 
+                reminder_response["reminder_data"]["message"], 
+                db
+            )
+            
+            print(f"📨 Günlük bildirim gönderildi: {user.id}")
+            
+    except Exception as e:
+        print(f"Error sending daily notification: {e}")
+        return False
 
 # Premium endpoints
 @app.get("/api/premium/trial-status", response_model=TrialStatusResponse)
