@@ -1065,6 +1065,232 @@ async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: 
         print(f"User roadmaps error: {e}")
         raise HTTPException(status_code=500, detail=f"User roadmaps error: {str(e)}")
 
+@app.get("/api/roadmap/{roadmap_id}/progress")
+async def get_roadmap_progress(
+    roadmap_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Roadmap'in detaylı progress bilgilerini döndür"""
+    try:
+        user_id = current_user.id
+        
+        # Roadmap'i kullanıcıya ait olup olmadığını kontrol et
+        roadmap = db.query(Roadmap).filter(
+            Roadmap.id == roadmap_id,
+            Roadmap.user_id == user_id
+        ).first()
+        
+        if not roadmap:
+            raise HTTPException(status_code=404, detail="Roadmap bulunamadı")
+        
+        # Roadmap step'lerini getir
+        steps = db.query(RoadmapStep).filter(
+            RoadmapStep.roadmap_id == roadmap_id
+        ).order_by(RoadmapStep.step_order).all()
+        
+        # Her step için progress bilgisini getir
+        steps_progress = []
+        completed_steps = 0
+        next_step = None
+        
+        for i, step in enumerate(steps):
+            # UserProgress tablosundan step durumunu kontrol et
+            progress = db.query(UserProgress).filter(
+                UserProgress.user_id == user_id,
+                UserProgress.roadmap_id == roadmap_id,
+                UserProgress.step_id == step.id
+            ).first()
+            
+            is_completed = progress and progress.status == "completed"
+            if is_completed:
+                completed_steps += 1
+            elif next_step is None:
+                next_step = {
+                    "step_id": step.id,
+                    "title": step.title
+                }
+            
+            # Resources ve projects'ı parse et
+            resources = json.loads(step.resources) if step.resources else []
+            projects = json.loads(step.prerequisites) if step.prerequisites else []
+            
+            steps_progress.append({
+                "step_id": step.id,
+                "step_order": step.step_order,
+                "title": step.title,
+                "description": step.description or "",
+                "estimated_hours": step.estimated_hours or 0,
+                "is_completed": is_completed,
+                "completed_at": progress.completed_at.isoformat() if progress and progress.completed_at else None,
+                "resources": resources,
+                "projects": projects
+            })
+        
+        total_steps = len(steps)
+        completion_percentage = (completed_steps / max(total_steps, 1)) * 100 if total_steps > 0 else 0
+        
+        return {
+            "roadmap_id": roadmap.id,
+            "title": roadmap.title,
+            "total_steps": total_steps,
+            "completed_steps": completed_steps,
+            "completion_percentage": int(completion_percentage),
+            "steps": steps_progress,
+            "next_step": next_step
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Roadmap progress error: {e}")
+        raise HTTPException(status_code=500, detail=f"Roadmap progress error: {str(e)}")
+
+@app.put("/api/roadmap/{roadmap_id}/step/{step_id}/complete")
+async def complete_step(
+    roadmap_id: int,
+    step_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Step'i tamamlandı olarak işaretle"""
+    try:
+        user_id = current_user.id
+        
+        # Roadmap'in kullanıcıya ait olduğunu kontrol et
+        roadmap = db.query(Roadmap).filter(
+            Roadmap.id == roadmap_id,
+            Roadmap.user_id == user_id
+        ).first()
+        
+        if not roadmap:
+            raise HTTPException(status_code=404, detail="Roadmap bulunamadı")
+        
+        # Step'in roadmap'e ait olduğunu kontrol et
+        step = db.query(RoadmapStep).filter(
+            RoadmapStep.id == step_id,
+            RoadmapStep.roadmap_id == roadmap_id
+        ).first()
+        
+        if not step:
+            raise HTTPException(status_code=404, detail="Step bulunamadı")
+        
+        # UserProgress kaydını güncelle veya oluştur
+        progress = db.query(UserProgress).filter(
+            UserProgress.user_id == user_id,
+            UserProgress.roadmap_id == roadmap_id,
+            UserProgress.step_id == step_id
+        ).first()
+        
+        if progress:
+            progress.status = "completed"
+            progress.completion_percentage = 100
+            progress.completed_at = datetime.now()
+        else:
+            progress = UserProgress(
+                user_id=user_id,
+                roadmap_id=roadmap_id,
+                step_id=step_id,
+                status="completed",
+                completion_percentage=100,
+                completed_at=datetime.now()
+            )
+            db.add(progress)
+        
+        db.commit()
+        
+        # Güncel progress bilgilerini hesapla
+        total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap_id).count()
+        completed_steps = db.query(UserProgress).filter(
+            UserProgress.user_id == user_id,
+            UserProgress.roadmap_id == roadmap_id,
+            UserProgress.status == "completed"
+        ).count()
+        
+        completion_percentage = (completed_steps / max(total_steps, 1)) * 100 if total_steps > 0 else 0
+        
+        return {
+            "success": True,
+            "message": "Step başarıyla tamamlandı",
+            "step_id": step_id,
+            "completed_steps": completed_steps,
+            "total_steps": total_steps,
+            "completion_percentage": int(completion_percentage)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Complete step error: {e}")
+        raise HTTPException(status_code=500, detail=f"Complete step error: {str(e)}")
+
+@app.put("/api/roadmap/{roadmap_id}/step/{step_id}/uncomplete")
+async def uncomplete_step(
+    roadmap_id: int,
+    step_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Step'i tamamlanmamış olarak işaretle"""
+    try:
+        user_id = current_user.id
+        
+        # Roadmap'in kullanıcıya ait olduğunu kontrol et
+        roadmap = db.query(Roadmap).filter(
+            Roadmap.id == roadmap_id,
+            Roadmap.user_id == user_id
+        ).first()
+        
+        if not roadmap:
+            raise HTTPException(status_code=404, detail="Roadmap bulunamadı")
+        
+        # Step'in roadmap'e ait olduğunu kontrol et
+        step = db.query(RoadmapStep).filter(
+            RoadmapStep.id == step_id,
+            RoadmapStep.roadmap_id == roadmap_id
+        ).first()
+        
+        if not step:
+            raise HTTPException(status_code=404, detail="Step bulunamadı")
+        
+        # UserProgress kaydını güncelle
+        progress = db.query(UserProgress).filter(
+            UserProgress.user_id == user_id,
+            UserProgress.roadmap_id == roadmap_id,
+            UserProgress.step_id == step_id
+        ).first()
+        
+        if progress:
+            progress.status = "not_started"
+            progress.completion_percentage = 0
+            progress.completed_at = None
+            db.commit()
+        
+        # Güncel progress bilgilerini hesapla
+        total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap_id).count()
+        completed_steps = db.query(UserProgress).filter(
+            UserProgress.user_id == user_id,
+            UserProgress.roadmap_id == roadmap_id,
+            UserProgress.status == "completed"
+        ).count()
+        
+        completion_percentage = (completed_steps / max(total_steps, 1)) * 100 if total_steps > 0 else 0
+        
+        return {
+            "success": True,
+            "message": "Step tamamlanmamış olarak işaretlendi",
+            "step_id": step_id,
+            "completed_steps": completed_steps,
+            "total_steps": total_steps,
+            "completion_percentage": int(completion_percentage)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Uncomplete step error: {e}")
+        raise HTTPException(status_code=500, detail=f"Uncomplete step error: {str(e)}")
+
 @app.get("/api/community/stats")
 async def get_community_stats(db: Session = Depends(get_db)):
     """Topluluk istatistiklerini döndür"""
