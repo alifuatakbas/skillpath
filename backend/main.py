@@ -1524,16 +1524,29 @@ async def get_community_posts(
         # Apply filtering and sorting based on filter type
         if filter_type == "my_topics":
             # Get user's active roadmap skills
-            user_skills = db.query(Roadmap.title).filter(
+            user_roadmaps = db.query(Roadmap).filter(
                 Roadmap.user_id == current_user.id,
                 Roadmap.is_active == 1
             ).all()
             
-            if user_skills:
-                # Extract skill names from roadmap titles
-                skill_names = [skill.title.split()[0] for skill in user_skills]  # First word of roadmap title
-                # Filter posts that match user's skills
-                query = query.filter(CommunityPost.skill_name.in_(skill_names))
+            if user_roadmaps:
+                # Extract skill names from roadmap titles (first word)
+                skill_names = []
+                for roadmap in user_roadmaps:
+                    if roadmap.title:
+                        skill_name = roadmap.title.split()[0] if roadmap.title.split() else ""
+                        if skill_name:
+                            skill_names.append(skill_name)
+                
+                if skill_names:
+                    # Filter posts that match user's skills
+                    query = query.filter(CommunityPost.skill_name.in_(skill_names))
+                else:
+                    # If no skill names found, return empty result
+                    return []
+            else:
+                # If no roadmaps found, return empty result
+                return []
             
             query = query.order_by(CommunityPost.created_at.desc())
             
@@ -1543,11 +1556,11 @@ async def get_community_posts(
             query = query.order_by(CommunityPost.created_at.desc())
             
         elif filter_type == "popular":
-            # Sort by likes count (descending)
-            query = query.order_by(CommunityPost.likes_count.desc().nullslast())
+            # Sort by creation date (descending) - en yeni gönderiler
+            query = query.order_by(CommunityPost.created_at.desc())
         elif filter_type == "trending":
-            # Sort by views count (descending) - trending posts are viewed more
-            query = query.order_by(CommunityPost.views_count.desc().nullslast())
+            # Sort by replies count (descending) - en çok yorum alan gönderiler
+            query = query.order_by(CommunityPost.replies_count.desc().nullslast())
         else:
             # Default: latest posts
             query = query.order_by(CommunityPost.created_at.desc())
