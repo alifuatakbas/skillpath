@@ -614,7 +614,9 @@ def init_sample_courses(db: Session):
         
         for course in sample_courses:
             db.add(course)
-            db.commit()
+        db.commit()
+
+
 
 # Initialize database with sample data
 @app.on_event("startup")
@@ -1504,6 +1506,7 @@ async def get_community_posts(
     limit: int = 20,
     offset: int = 0,
     post_type: Optional[str] = None,
+    filter_type: Optional[str] = "latest",  # latest, popular, trending
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1517,8 +1520,19 @@ async def get_community_posts(
         # Filter by post type if provided
         if post_type and post_type != 'all':
             query = query.filter(CommunityPost.post_type == post_type)
+        
+        # Apply sorting based on filter type
+        if filter_type == "popular":
+            # Sort by likes count (descending)
+            query = query.order_by(CommunityPost.likes_count.desc().nullslast())
+        elif filter_type == "trending":
+            # Sort by views count (descending) - trending posts are viewed more
+            query = query.order_by(CommunityPost.views_count.desc().nullslast())
+        else:
+            # Default: latest posts
+            query = query.order_by(CommunityPost.created_at.desc())
             
-        posts = query.order_by(CommunityPost.created_at.desc()).offset(offset).limit(limit).all()
+        posts = query.offset(offset).limit(limit).all()
         
         result = []
         for post, user_name in posts:
