@@ -190,6 +190,47 @@ class PostLike(Base):
     comment_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=func.now())
 
+# Notification Models
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, unique=True, index=True, nullable=False)
+    daily_reminder_enabled = Column(Integer, default=1) # tinyint(1)
+    daily_reminder_time = Column(String(5), nullable=False) # HH:MM
+    step_completion_enabled = Column(Integer, default=1) # tinyint(1)
+    streak_warning_enabled = Column(Integer, default=1) # tinyint(1)
+    weekly_progress_enabled = Column(Integer, default=1) # tinyint(1)
+    do_not_disturb_start = Column(String(5), nullable=False) # HH:MM
+    do_not_disturb_end = Column(String(5), nullable=False) # HH:MM
+    timezone = Column(String(50), nullable=False)
+    device_timezone = Column(String(50), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class PushToken(Base):
+    __tablename__ = "push_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, unique=True, index=True, nullable=False)
+    push_token = Column(String(255), nullable=False)
+    device_type = Column(String(50), nullable=False) # e.g., "android", "ios"
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, index=True, nullable=False)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    notification_type = Column(String(50), nullable=False) # e.g., "daily_reminder", "new_post", "comment_reply"
+    sent_at = Column(DateTime(timezone=True), nullable=False)
+    roadmap_title = Column(String(300), nullable=True)
+    step_title = Column(String(300), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -423,6 +464,44 @@ class CommunityCommentResponse(BaseModel):
 class PostLikeRequest(BaseModel):
     post_id: Optional[int] = None
     comment_id: Optional[int] = None
+
+# Notification Models
+class NotificationPreferenceRequest(BaseModel):
+    daily_reminder_enabled: bool
+    daily_reminder_time: str
+    step_completion_enabled: bool
+    streak_warning_enabled: bool
+    weekly_progress_enabled: bool
+    do_not_disturb_start: str
+    do_not_disturb_end: str
+    timezone: str
+    device_timezone: str
+
+class NotificationPreferenceResponse(BaseModel):
+    id: int
+    user_id: int
+    daily_reminder_enabled: bool
+    daily_reminder_time: str
+    step_completion_enabled: bool
+    streak_warning_enabled: bool
+    weekly_progress_enabled: bool
+    do_not_disturb_start: str
+    do_not_disturb_end: str
+    timezone: str
+    device_timezone: str
+
+class PushTokenRequest(BaseModel):
+    push_token: str
+    device_type: str
+
+class NotificationResponse(BaseModel):
+    id: int
+    title: str
+    message: str
+    notification_type: str
+    sent_at: str
+    roadmap_title: Optional[str] = None
+    step_title: Optional[str] = None
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
@@ -1199,6 +1278,37 @@ async def complete_step(
         
         db.commit()
         
+        # Step completion bildirimi gönder
+        try:
+            # Kullanıcının bildirim tercihlerini kontrol et
+            prefs = db.query(NotificationPreference).filter(
+                NotificationPreference.user_id == user_id
+            ).first()
+            
+            if prefs and prefs.step_completion_enabled:
+                # Bildirim kaydı oluştur
+                notification = Notification(
+                    user_id=user_id,
+                    title="🎉 Adım Tamamlandı!",
+                    message=f"'{step.title}' adımını başarıyla tamamladınız!",
+                    notification_type="step_completion",
+                    roadmap_title=roadmap.title,
+                    step_title=step.title,
+                    sent_at=datetime.now()
+                )
+                db.add(notification)
+                db.commit()
+                
+                # Push notification gönder
+                await send_push_notification(
+                    user_id, 
+                    "🎉 Adım Tamamlandı!", 
+                    f"'{step.title}' adımını başarıyla tamamladınız!",
+                    db
+                )
+        except Exception as e:
+            print(f"Step completion notification error: {e}")
+        
         # Güncel progress bilgilerini hesapla
         total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap_id).count()
         completed_steps = db.query(UserProgress).filter(
@@ -1596,3 +1706,397 @@ async def like_post(
     except Exception as e:
         print(f"Like post error: {e}")
         raise HTTPException(status_code=500, detail=f"Like error: {str(e)}") 
+
+# Notification API
+@app.post("/api/notifications/preferences", response_model=NotificationPreferenceResponse)
+async def update_notification_preferences(
+    preferences: NotificationPreferenceRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Kullanıcının bildirim tercihlerini güncelle"""
+    try:
+        # Mevcut tercihleri kontrol et
+        existing_prefs = db.query(NotificationPreference).filter(
+            NotificationPreference.user_id == current_user.id
+        ).first()
+        
+        if existing_prefs:
+            # Mevcut tercihleri güncelle
+            existing_prefs.daily_reminder_enabled = preferences.daily_reminder_enabled
+            existing_prefs.daily_reminder_time = preferences.daily_reminder_time
+            existing_prefs.step_completion_enabled = preferences.step_completion_enabled
+            existing_prefs.streak_warning_enabled = preferences.streak_warning_enabled
+            existing_prefs.weekly_progress_enabled = preferences.weekly_progress_enabled
+            existing_prefs.do_not_disturb_start = preferences.do_not_disturb_start
+            existing_prefs.do_not_disturb_end = preferences.do_not_disturb_end
+            existing_prefs.timezone = preferences.timezone
+            existing_prefs.device_timezone = preferences.device_timezone
+            existing_prefs.updated_at = datetime.now()
+        else:
+            # Yeni tercihler oluştur
+            new_prefs = NotificationPreference(
+                user_id=current_user.id,
+                daily_reminder_enabled=preferences.daily_reminder_enabled,
+                daily_reminder_time=preferences.daily_reminder_time,
+                step_completion_enabled=preferences.step_completion_enabled,
+                streak_warning_enabled=preferences.streak_warning_enabled,
+                weekly_progress_enabled=preferences.weekly_progress_enabled,
+                do_not_disturb_start=preferences.do_not_disturb_start,
+                do_not_disturb_end=preferences.do_not_disturb_end,
+                timezone=preferences.timezone,
+                device_timezone=preferences.device_timezone
+            )
+            db.add(new_prefs)
+        
+        db.commit()
+        
+        # Güncel tercihleri döndür
+        updated_prefs = db.query(NotificationPreference).filter(
+            NotificationPreference.user_id == current_user.id
+        ).first()
+        
+        return NotificationPreferenceResponse(
+            id=updated_prefs.id,
+            user_id=updated_prefs.user_id,
+            daily_reminder_enabled=updated_prefs.daily_reminder_enabled,
+            daily_reminder_time=updated_prefs.daily_reminder_time,
+            step_completion_enabled=updated_prefs.step_completion_enabled,
+            streak_warning_enabled=updated_prefs.streak_warning_enabled,
+            weekly_progress_enabled=updated_prefs.weekly_progress_enabled,
+            do_not_disturb_start=updated_prefs.do_not_disturb_start,
+            do_not_disturb_end=updated_prefs.do_not_disturb_end,
+            timezone=updated_prefs.timezone,
+            device_timezone=updated_prefs.device_timezone
+        )
+        
+    except Exception as e:
+        print(f"Update notification preferences error: {e}")
+        raise HTTPException(status_code=500, detail=f"Notification preferences error: {str(e)}")
+
+@app.get("/api/notifications/preferences", response_model=NotificationPreferenceResponse)
+async def get_notification_preferences(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Kullanıcının bildirim tercihlerini getir"""
+    try:
+        prefs = db.query(NotificationPreference).filter(
+            NotificationPreference.user_id == current_user.id
+        ).first()
+        
+        if not prefs:
+            # Varsayılan tercihler oluştur
+            prefs = NotificationPreference(
+                user_id=current_user.id,
+                daily_reminder_enabled=True,
+                daily_reminder_time="09:00",
+                step_completion_enabled=True,
+                streak_warning_enabled=True,
+                weekly_progress_enabled=True,
+                do_not_disturb_start="22:00",
+                do_not_disturb_end="08:00",
+                timezone="Europe/Istanbul",
+                device_timezone="Europe/Istanbul"
+            )
+            db.add(prefs)
+            db.commit()
+        
+        return NotificationPreferenceResponse(
+            id=prefs.id,
+            user_id=prefs.user_id,
+            daily_reminder_enabled=prefs.daily_reminder_enabled,
+            daily_reminder_time=prefs.daily_reminder_time,
+            step_completion_enabled=prefs.step_completion_enabled,
+            streak_warning_enabled=prefs.streak_warning_enabled,
+            weekly_progress_enabled=prefs.weekly_progress_enabled,
+            do_not_disturb_start=prefs.do_not_disturb_start,
+            do_not_disturb_end=prefs.do_not_disturb_end,
+            timezone=prefs.timezone,
+            device_timezone=prefs.device_timezone
+        )
+        
+    except Exception as e:
+        print(f"Get notification preferences error: {e}")
+        raise HTTPException(status_code=500, detail=f"Get notification preferences error: {str(e)}")
+
+@app.get("/api/notifications/daily-reminder")
+async def get_daily_reminder(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Günlük motivasyonel hatırlatma oluştur"""
+    try:
+        # Kullanıcının aktif roadmap'lerini getir
+        active_roadmaps = db.query(Roadmap).filter(
+            Roadmap.user_id == current_user.id,
+            Roadmap.is_active == 1
+        ).all()
+        
+        if not active_roadmaps:
+            return {
+                "success": True,
+                "message": "Günlük hatırlatma oluşturulamadı - aktif roadmap yok",
+                "reminder_data": {
+                    "title": "Yeni Bir Yolculuk Başlatın! 🚀",
+                    "message": "Henüz bir öğrenme yolculuğuna başlamadınız. Bugün yeni bir skill öğrenmeye başlayın!"
+                }
+            }
+        
+        # En aktif roadmap'i seç
+        roadmap = active_roadmaps[0]
+        
+        # Tamamlanan ve toplam step sayısını hesapla
+        total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap.id).count()
+        completed_steps = db.query(UserProgress).filter(
+            UserProgress.user_id == current_user.id,
+            UserProgress.roadmap_id == roadmap.id,
+            UserProgress.status == "completed"
+        ).count()
+        
+        # Motivasyonel mesajlar
+        motivational_messages = [
+            f"🎯 Bugün {roadmap.title} yolculuğunuzda bir adım daha atın!",
+            f"💪 {roadmap.title} konusunda {completed_steps}/{total_steps} adımı tamamladınız. Devam edin!",
+            f"🌟 {roadmap.title} öğrenme yolculuğunuzda harika ilerliyorsunuz!",
+            f"🚀 {roadmap.title} hedefinize bir adım daha yaklaşın!",
+            f"✨ Bugün {roadmap.title} konusunda yeni bir şey öğrenin!",
+            f"🔥 {roadmap.title} yolculuğunuzda tutkunuzu koruyun!",
+            f"📚 {roadmap.title} konusunda bilginizi genişletin!",
+            f"🎉 {roadmap.title} öğrenme serüveninizde başarılarınızı kutlayın!"
+        ]
+        
+        import random
+        selected_message = random.choice(motivational_messages)
+        
+        # Progress yüzdesi
+        progress_percentage = (completed_steps / max(total_steps, 1)) * 100
+        
+        # Progress durumuna göre ek mesaj
+        if progress_percentage >= 80:
+            additional_message = "🎊 Neredeyse tamamladınız! Son düzlükte devam edin!"
+        elif progress_percentage >= 50:
+            additional_message = "🎯 Yarı yoldasınız! Bu harika bir başarı!"
+        elif progress_percentage >= 25:
+            additional_message = "🌟 Güzel bir başlangıç yaptınız! Devam edin!"
+        else:
+            additional_message = "🚀 Yeni başladınız! Her gün bir adım atın!"
+        
+        return {
+            "success": True,
+            "message": "Günlük hatırlatma oluşturuldu",
+            "reminder_data": {
+                "title": f"Günlük Öğrenme Hatırlatması 📚",
+                "message": f"{selected_message}\n\n{additional_message}\n\nİlerleme: %{int(progress_percentage)}",
+                "roadmap_title": roadmap.title,
+                "progress_percentage": int(progress_percentage)
+            }
+        }
+        
+    except Exception as e:
+        print(f"Daily reminder error: {e}")
+        raise HTTPException(status_code=500, detail=f"Daily reminder error: {str(e)}")
+
+@app.post("/api/notifications/push-token")
+async def register_push_token(
+    request: PushTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Push notification token'ını kaydet"""
+    try:
+        # Mevcut token'ı kontrol et
+        existing_token = db.query(PushToken).filter(
+            PushToken.user_id == current_user.id,
+            PushToken.device_type == request.device_type
+        ).first()
+        
+        if existing_token:
+            # Token'ı güncelle
+            existing_token.push_token = request.push_token
+            existing_token.updated_at = datetime.now()
+        else:
+            # Yeni token oluştur
+            new_token = PushToken(
+                user_id=current_user.id,
+                push_token=request.push_token,
+                device_type=request.device_type
+            )
+            db.add(new_token)
+        
+        db.commit()
+        
+        return {"success": True, "message": "Push token başarıyla kaydedildi"}
+        
+    except Exception as e:
+        print(f"Register push token error: {e}")
+        raise HTTPException(status_code=500, detail=f"Register push token error: {str(e)}")
+
+@app.get("/api/notifications/history")
+async def get_notification_history(
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Kullanıcının bildirim geçmişini getir"""
+    try:
+        notifications = db.query(Notification).filter(
+            Notification.user_id == current_user.id
+        ).order_by(Notification.sent_at.desc()).limit(limit).all()
+        
+        result = []
+        for notification in notifications:
+            result.append(NotificationResponse(
+                id=notification.id,
+                title=notification.title,
+                message=notification.message,
+                notification_type=notification.notification_type,
+                sent_at=notification.sent_at.isoformat(),
+                roadmap_title=notification.roadmap_title,
+                step_title=notification.step_title
+            ))
+        
+        return result
+        
+    except Exception as e:
+        print(f"Get notification history error: {e}")
+        raise HTTPException(status_code=500, detail=f"Get notification history error: {str(e)}")
+
+@app.post("/api/notifications/send-daily")
+async def send_daily_notifications(
+    db: Session = Depends(get_db)
+):
+    """Günlük bildirimleri gönder (cron job için)"""
+    try:
+        # Günlük hatırlatma aktif olan kullanıcıları getir
+        users_with_reminders = db.query(User, NotificationPreference).join(
+            NotificationPreference, User.id == NotificationPreference.user_id
+        ).filter(
+            NotificationPreference.daily_reminder_enabled == True
+        ).all()
+        
+        sent_count = 0
+        
+        for user, prefs in users_with_reminders:
+            try:
+                # Günlük hatırlatma oluştur
+                reminder_response = await get_daily_reminder_internal(user, db)
+                
+                if reminder_response["success"]:
+                    # Bildirim kaydı oluştur
+                    notification = Notification(
+                        user_id=user.id,
+                        title=reminder_response["reminder_data"]["title"],
+                        message=reminder_response["reminder_data"]["message"],
+                        notification_type="daily_reminder",
+                        roadmap_title=reminder_response["reminder_data"].get("roadmap_title"),
+                        sent_at=datetime.now()
+                    )
+                    db.add(notification)
+                    
+                    # Push notification gönder (gerçek implementasyon için Expo Push API kullanılabilir)
+                    await send_push_notification(user.id, reminder_response["reminder_data"]["title"], reminder_response["reminder_data"]["message"], db)
+                    
+                    sent_count += 1
+                    
+            except Exception as e:
+                print(f"Error sending daily reminder to user {user.id}: {e}")
+                continue
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"{sent_count} günlük bildirim gönderildi",
+            "sent_count": sent_count
+        }
+        
+    except Exception as e:
+        print(f"Send daily notifications error: {e}")
+        raise HTTPException(status_code=500, detail=f"Send daily notifications error: {str(e)}")
+
+async def get_daily_reminder_internal(user: User, db: Session):
+    """Günlük hatırlatma oluştur (internal kullanım için)"""
+    # Kullanıcının aktif roadmap'lerini getir
+    active_roadmaps = db.query(Roadmap).filter(
+        Roadmap.user_id == user.id,
+        Roadmap.is_active == 1
+    ).all()
+    
+    if not active_roadmaps:
+        return {
+            "success": True,
+            "message": "Günlük hatırlatma oluşturulamadı - aktif roadmap yok",
+            "reminder_data": {
+                "title": "Yeni Bir Yolculuk Başlatın! 🚀",
+                "message": "Henüz bir öğrenme yolculuğuna başlamadınız. Bugün yeni bir skill öğrenmeye başlayın!"
+            }
+        }
+    
+    # En aktif roadmap'i seç
+    roadmap = active_roadmaps[0]
+    
+    # Tamamlanan ve toplam step sayısını hesapla
+    total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap.id).count()
+    completed_steps = db.query(UserProgress).filter(
+        UserProgress.user_id == user.id,
+        UserProgress.roadmap_id == roadmap.id,
+        UserProgress.status == "completed"
+    ).count()
+    
+    # Motivasyonel mesajlar
+    motivational_messages = [
+        f"🎯 Bugün {roadmap.title} yolculuğunuzda bir adım daha atın!",
+        f"💪 {roadmap.title} konusunda {completed_steps}/{total_steps} adımı tamamladınız. Devam edin!",
+        f"🌟 {roadmap.title} öğrenme yolculuğunuzda harika ilerliyorsunuz!",
+        f"🚀 {roadmap.title} hedefinize bir adım daha yaklaşın!",
+        f"✨ Bugün {roadmap.title} konusunda yeni bir şey öğrenin!",
+        f"🔥 {roadmap.title} yolculuğunuzda tutkunuzu koruyun!",
+        f"📚 {roadmap.title} konusunda bilginizi genişletin!",
+        f"🎉 {roadmap.title} öğrenme serüveninizde başarılarınızı kutlayın!"
+    ]
+    
+    import random
+    selected_message = random.choice(motivational_messages)
+    
+    # Progress yüzdesi
+    progress_percentage = (completed_steps / max(total_steps, 1)) * 100
+    
+    # Progress durumuna göre ek mesaj
+    if progress_percentage >= 80:
+        additional_message = "🎊 Neredeyse tamamladınız! Son düzlükte devam edin!"
+    elif progress_percentage >= 50:
+        additional_message = "🎯 Yarı yoldasınız! Bu harika bir başarı!"
+    elif progress_percentage >= 25:
+        additional_message = "🌟 Güzel bir başlangıç yaptınız! Devam edin!"
+    else:
+        additional_message = "🚀 Yeni başladınız! Her gün bir adım atın!"
+    
+    return {
+        "success": True,
+        "message": "Günlük hatırlatma oluşturuldu",
+        "reminder_data": {
+            "title": f"Günlük Öğrenme Hatırlatması 📚",
+            "message": f"{selected_message}\n\n{additional_message}\n\nİlerleme: %{int(progress_percentage)}",
+            "roadmap_title": roadmap.title,
+            "progress_percentage": int(progress_percentage)
+        }
+    }
+
+async def send_push_notification(user_id: int, title: str, message: str, db: Session):
+    """Push notification gönder"""
+    try:
+        # Kullanıcının push token'larını getir
+        tokens = db.query(PushToken).filter(PushToken.user_id == user_id).all()
+        
+        if not tokens:
+            return
+        
+        # Expo Push API kullanarak bildirim gönder
+        # Bu kısım gerçek implementasyon için Expo Push API ile entegre edilebilir
+        for token in tokens:
+            # Expo Push API çağrısı burada yapılacak
+            print(f"Push notification would be sent to {token.push_token}: {title} - {message}")
+            
+    except Exception as e:
+        print(f"Send push notification error: {e}") 
