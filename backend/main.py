@@ -1506,7 +1506,7 @@ async def get_community_posts(
     limit: int = 20,
     offset: int = 0,
     post_type: Optional[str] = None,
-    filter_type: Optional[str] = "latest",  # latest, popular, trending
+    filter_type: Optional[str] = "latest",  # latest, popular, trending, my_topics, my_questions
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1521,8 +1521,28 @@ async def get_community_posts(
         if post_type and post_type != 'all':
             query = query.filter(CommunityPost.post_type == post_type)
         
-        # Apply sorting based on filter type
-        if filter_type == "popular":
+        # Apply filtering and sorting based on filter type
+        if filter_type == "my_topics":
+            # Get user's active roadmap skills
+            user_skills = db.query(Roadmap.title).filter(
+                Roadmap.user_id == current_user.id,
+                Roadmap.is_active == 1
+            ).all()
+            
+            if user_skills:
+                # Extract skill names from roadmap titles
+                skill_names = [skill.title.split()[0] for skill in user_skills]  # First word of roadmap title
+                # Filter posts that match user's skills
+                query = query.filter(CommunityPost.skill_name.in_(skill_names))
+            
+            query = query.order_by(CommunityPost.created_at.desc())
+            
+        elif filter_type == "my_questions":
+            # Show only posts created by current user
+            query = query.filter(CommunityPost.user_id == current_user.id)
+            query = query.order_by(CommunityPost.created_at.desc())
+            
+        elif filter_type == "popular":
             # Sort by likes count (descending)
             query = query.order_by(CommunityPost.likes_count.desc().nullslast())
         elif filter_type == "trending":
