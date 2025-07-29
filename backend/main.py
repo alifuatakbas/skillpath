@@ -1125,12 +1125,15 @@ async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: 
         user_id = current_user.id  # .id kullan
         
         print(f"Getting roadmaps for user_id: {user_id}")
-        roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).all()
+        # Join with Skill table to get skill names
+        roadmaps = db.query(Roadmap, Skill.name.label('skill_name')).join(
+            Skill, Roadmap.skill_id == Skill.id
+        ).filter(Roadmap.user_id == user_id).all()
         print(f"Found {len(roadmaps)} roadmaps for user {user_id}")
         
         result = []
         
-        for roadmap in roadmaps:
+        for roadmap, skill_name in roadmaps:
             # Bu roadmap'in step'lerini say
             total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap.id).count()
             
@@ -1147,6 +1150,7 @@ async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: 
                 "id": roadmap.id,
                 "title": roadmap.title,
                 "description": roadmap.description or "",
+                "skill_name": skill_name,
                 "total_weeks": roadmap.total_weeks or 12,
                 "difficulty_level": roadmap.difficulty_level or "beginner",
                 "total_steps": total_steps,
@@ -1565,7 +1569,9 @@ async def get_community_posts(
             query = query.order_by(CommunityPost.created_at.desc())
         elif filter_type == "trending":
             # Sort by replies count (descending) - en çok yorum alan gönderiler
-            query = query.order_by(CommunityPost.replies_count.desc().nullslast(), CommunityPost.created_at.desc())
+            # MySQL'de nullslast() desteklenmiyor, COALESCE kullanıyoruz
+            from sqlalchemy import func
+            query = query.order_by(func.coalesce(CommunityPost.replies_count, 0).desc(), CommunityPost.created_at.desc())
         else:
             # Default: latest posts
             query = query.order_by(CommunityPost.created_at.desc())
