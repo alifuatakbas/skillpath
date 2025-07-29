@@ -1125,15 +1125,20 @@ async def get_user_roadmaps(current_user: User = Depends(get_current_user), db: 
         user_id = current_user.id  # .id kullan
         
         print(f"Getting roadmaps for user_id: {user_id}")
-        # Join with Skill table to get skill names
-        roadmaps = db.query(Roadmap, Skill.name.label('skill_name')).join(
-            Skill, Roadmap.skill_id == Skill.id
-        ).filter(Roadmap.user_id == user_id).all()
+        # Get roadmaps without join first
+        roadmaps = db.query(Roadmap).filter(Roadmap.user_id == user_id).all()
         print(f"Found {len(roadmaps)} roadmaps for user {user_id}")
         
         result = []
         
-        for roadmap, skill_name in roadmaps:
+        for roadmap in roadmaps:
+            # Try to get skill name from Skill table
+            skill_name = None
+            try:
+                skill = db.query(Skill).filter(Skill.id == roadmap.skill_id).first()
+                skill_name = skill.name if skill else None
+            except:
+                skill_name = None
             # Bu roadmap'in step'lerini say
             total_steps = db.query(RoadmapStep).filter(RoadmapStep.roadmap_id == roadmap.id).count()
             
