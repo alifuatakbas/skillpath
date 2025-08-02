@@ -668,6 +668,27 @@ async def startup_event():
 async def root():
     return {"message": "SkillPath API'sine Hoş Geldiniz!", "version": "1.0.0"}
 
+@app.get("/support")
+async def support():
+    return {
+        "app_name": "SkillPath",
+        "version": "1.1.0",
+        "support_email": "akbasalifuat@gmail.com",
+        "website": "https://skillpath.com",
+        "description": "SkillPath - Modern learning platform. Create roadmaps, work with Pomodoro technique and learn with the community.",
+        "features": [
+            "Personalized learning roadmaps",
+            "Pomodoro timer",
+            "Community support",
+            "Progress tracking",
+            "Premium features"
+        ],
+        "contact": {
+            "email": "akbasalifuat@gmail.com",
+            "response_time": "24 hours"
+        }
+    }
+
 @app.get("/api/courses", response_model=List[CourseResponse])
 async def get_courses(db: Session = Depends(get_db)):
     """Tüm kursları getir"""
