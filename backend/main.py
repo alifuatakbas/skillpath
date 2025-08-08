@@ -689,6 +689,22 @@ async def support():
         }
     }
 
+@app.get("/privacy")
+async def privacy():
+    return {
+        "app_name": "SkillPath",
+        "privacy_policy": "Last updated: December 2024",
+        "data_collection": "We collect minimal data necessary for app functionality",
+        "data_usage": "Data is used only for app features and user experience",
+        "data_sharing": "We do not sell or share personal data with third parties",
+        "user_rights": "Users can request data deletion at any time",
+        "contact": {
+            "email": "akbasalifuat@gmail.com",
+            "purpose": "Privacy policy questions"
+        },
+        "full_policy": "This is a simplified privacy policy. For detailed information, contact us."
+    }
+
 @app.get("/api/courses", response_model=List[CourseResponse])
 async def get_courses(db: Session = Depends(get_db)):
     """Tüm kursları getir"""
