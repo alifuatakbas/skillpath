@@ -16,7 +16,7 @@ const CURRENT_API_URL = PRODUCTION_URL;
 export const AppConfig: AppConfig = {
   API_BASE_URL: CURRENT_API_URL,
   APP_NAME: 'SkillPath',
-  VERSION: '1.0.0',
+  VERSION: '1.1.0',
   
   // Google OAuth Client IDs
   GOOGLE_IOS_CLIENT_ID: '555670764137-9c9tvrb6tf4pcho322b0tt92q2b8t1li.apps.googleusercontent.com',

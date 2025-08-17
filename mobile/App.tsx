@@ -85,19 +85,7 @@ async function registerForPushNotificationsAsync() {
 
 export default function App() {
   useEffect(() => {
-    // IAP başlat
-    const initializeIAP = async () => {
-      try {
-        const { initConnection } = await import('react-native-iap');
-        await initConnection();
-        console.log('✅ IAP initialized in App.tsx');
-      } catch (error) {
-        console.error('❌ IAP initialization failed:', error);
-      }
-    };
-    
-    initializeIAP();
-    
+    // Push notifications
     registerForPushNotificationsAsync().then(token => {
       if (token) {
         registerPushToken({
@@ -121,11 +109,7 @@ export default function App() {
         >
           <Stack.Screen 
             name="Home" 
-            component={(props: any) => (
-              <TrialWrapper navigation={props.navigation}>
-                <HomeScreen {...props} />
-              </TrialWrapper>
-            )} 
+            component={HomeScreen}
           />
           <Stack.Screen 
             name="Assessment" 

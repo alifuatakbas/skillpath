@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePremium } from '../contexts/PremiumContext';
+import { useIAP } from 'expo-iap';
 
 // Subscription product interface
 interface SubscriptionProduct {
@@ -34,7 +35,7 @@ interface PaywallScreenProps {
 // Test için fallback planlar (store'dan yüklenemezse)
 const FALLBACK_PLANS: SubscriptionProduct[] = [
   {
-    productId: 'SkillPath_monthly_premium',
+    productId: 'skillpath_premium_monthly',
     title: 'Premium Aylık',
     description: 'Tüm premium özellikler',
     price: '6.99',
@@ -53,18 +54,34 @@ const FALLBACK_PLANS: SubscriptionProduct[] = [
 
 const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   const [plans, setPlans] = useState<SubscriptionProduct[]>(FALLBACK_PLANS);
-  const [selectedPlan, setSelectedPlan] = useState<string>('SkillPath_monthly_premium');
+  const [selectedPlan, setSelectedPlan] = useState<string>('skillpath_premium_monthly');
   const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
 
+  // expo-iap hook kullan
+  const { connected, products, requestProducts, requestPurchase, validateReceipt } = useIAP();
   
   // Premium context kullan
   const { refreshSubscription, trialDaysLeft, trialExpiryDate } = usePremium();
 
-useEffect(() => {
+  useEffect(() => {
     // Varsayılan olarak aylık planı seç
     setSelectedPlan('skillpath_premium_monthly');
   }, []);
+
+  useEffect(() => {
+    // Store'dan ürünleri yükle
+    if (connected) {
+      console.log('🔗 IAP Connected, requesting products...');
+      requestProducts({ skus: ['skillpath_premium_monthly', 'skillpath_premium_yearly'], type: 'subs' });
+    } else {
+      console.log('❌ IAP Not connected');
+    }
+  }, [connected, requestProducts]);
+
+  useEffect(() => {
+    console.log('📦 Products loaded:', products);
+  }, [products]);
 
   const handleStartTrial = async () => {
     if (!selectedPlan) {
@@ -77,24 +94,82 @@ useEffect(() => {
       const selectedPlanData = plans.find(plan => plan.productId === selectedPlan);
       
       if (selectedPlanData) {
-        // App Store IAP ile trial başlat
-        const { requestPurchase, finishTransaction } = await import('react-native-iap');
+        console.log('🛒 Starting purchase for:', selectedPlan);
         
+        // expo-iap ile satın alma işlemini başlat
         const purchase = await requestPurchase({
-          sku: selectedPlan,
-          andDangerouslyFinishTransactionAutomaticallyIOS: false,
-        });
+          request: { sku: selectedPlan },
+          type: 'subs'
+        } as any);
 
-        if (purchase) {
-          // Array ise ilk elemanı al
-          const purchaseData = Array.isArray(purchase) ? purchase[0] : purchase;
+        console.log('📦 Purchase result:', purchase);
+
+        // Eğer mevcut satın alma varsa, onu kullanma
+        if (purchase && purchase.ownershipType === 'PURCHASED') {
+          Alert.alert('Debug', 'Existing purchase found! This is why Apple screen didn\'t open.');
+          // Mevcut satın almayı kullan
+          if (purchase.transactionId) {
+            // Backend'e trial başlatma isteği gönder
+            const token = await AsyncStorage.getItem('skillpath_token');
+            const { AppConfig } = await import('../config/environment');
+            
+            console.log('🌐 Sending trial start request to backend...');
+            
+            const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/start-trial`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                product_id: selectedPlan,
+                transaction_id: purchase.transactionId,
+                receipt: purchase.transactionReceipt,
+              }),
+            });
+
+            if (response.ok) {
+              console.log('✅ Backend trial start successful');
+              
+              // Premium durumunu yenile - bu trial'ı aktif edecek
+              await refreshSubscription();
+              
+              Alert.alert(
+                'Trial Başlatıldı! 🎉',
+                `3 günlük ücretsiz deneme süreniz başladı. ${selectedPlanData.title} planına abone olacaksınız.`,
+                [
+                  {
+                    text: 'Harika!',
+                    onPress: () => navigation.goBack(),
+                  },
+                ]
+              );
+            } else {
+              const errorData = await response.text();
+              console.error('❌ Backend trial start failed:', response.status, errorData);
+              Alert.alert('Hata', 'Trial başlatılamadı. Lütfen tekrar deneyin.');
+            }
+          }
+          return;
+        }
+
+        // YENİ: Apple'dan onay alındıktan sonra backend'e gönder
+        if (purchase && purchase.transactionId) {
+          console.log('✅ Apple purchase confirmed, starting trial...');
           
-          // Transaction'ı tamamla
-          await finishTransaction({ purchase: purchaseData });
+          // Receipt'i doğrula
+          try {
+            const validationResult = await validateReceipt(purchase.transactionId);
+            console.log('🔍 Receipt validation:', validationResult);
+          } catch (validationError) {
+            console.warn('⚠️ Receipt validation failed:', validationError);
+          }
           
           // Backend'e trial başlatma isteği gönder
           const token = await AsyncStorage.getItem('skillpath_token');
           const { AppConfig } = await import('../config/environment');
+          
+          console.log('🌐 Sending trial start request to backend...');
           
           const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/start-trial`, {
             method: 'POST',
@@ -104,12 +179,14 @@ useEffect(() => {
             },
             body: JSON.stringify({
               product_id: selectedPlan,
-              transaction_id: purchaseData.transactionId,
-              receipt: purchaseData.transactionReceipt,
+              transaction_id: purchase.transactionId,
+              receipt: purchase.transactionReceipt,
             }),
           });
 
           if (response.ok) {
+            console.log('✅ Backend trial start successful');
+            
             // Premium durumunu yenile
             await refreshSubscription();
             
@@ -124,15 +201,26 @@ useEffect(() => {
               ]
             );
           } else {
+            const errorData = await response.text();
+            console.error('❌ Backend trial start failed:', response.status, errorData);
             Alert.alert('Hata', 'Trial başlatılamadı. Lütfen tekrar deneyin.');
           }
+        } else {
+          console.log('❌ Purchase failed or incomplete:', purchase);
+          Alert.alert('Hata', 'Satın alma işlemi tamamlanamadı. Lütfen tekrar deneyin.');
         }
       } else {
         Alert.alert('Hata', 'Seçilen plan bulunamadı.');
       }
-    } catch (error) {
-      console.error('Trial error:', error);
-      Alert.alert('Hata', 'Beklenmeyen bir hata oluştu');
+    } catch (error: any) {
+      console.error('❌ Trial error:', error);
+      
+      // Kullanıcı iptal ettiyse farklı mesaj göster
+      if (error?.message?.includes('cancel') || error?.message?.includes('user')) {
+        Alert.alert('İptal Edildi', 'Satın alma işlemi iptal edildi.');
+      } else {
+        Alert.alert('Hata', `Satın alma işlemi başarısız: ${error?.message || 'Beklenmeyen bir hata oluştu'}`);
+      }
     } finally {
       setPurchasing(false);
     }
