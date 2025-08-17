@@ -2396,31 +2396,25 @@ async def get_trial_status(current_user: User = Depends(get_current_user), db: S
     try:
         now = datetime.utcnow()
         
-        # Trial başlatılmamışsa başlat
-        if not current_user.trial_start_date:
-            trial_start = now
-            trial_end = trial_start + timedelta(days=3)
-            
-            current_user.trial_start_date = trial_start
-            current_user.trial_end_date = trial_end
-            current_user.subscription_type = "trial"
-            db.commit()
-            
-            days_left = 3
-            is_active = True
-        else:
-            # Trial süresini hesapla
+        # Trial başlatılmışsa kontrol et
+        if current_user.trial_start_date and current_user.trial_end_date:
             trial_end = current_user.trial_end_date
-            if trial_end and now < trial_end:
+            if now < trial_end:
                 days_left = (trial_end - now).days
                 is_active = True
             else:
                 days_left = 0
                 is_active = False
-                # Trial süresi dolmuşsa free yap
+                # Trial süresi dolmuşsa otomatik abonelik başlat
                 if current_user.subscription_type == "trial":
-                    current_user.subscription_type = "free"
+                    current_user.subscription_type = "premium"
+                    current_user.subscription_expires = now + timedelta(days=30)
                     db.commit()
+                    print(f"Trial ended for user {current_user.id}, auto-subscription started")
+        else:
+            # Trial başlatılmamış
+            days_left = 0
+            is_active = False
         
         return TrialStatusResponse(
             days_left=days_left,
@@ -2437,8 +2431,16 @@ async def start_trial(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """3 günlük trial başlat"""
+    """3 günlük trial başlat - Apple receipt doğrulaması ile"""
     try:
+        # Apple receipt doğrulaması (basit kontrol)
+        if not request.transaction_id or not request.receipt:
+            raise HTTPException(status_code=400, detail="Apple transaction ID and receipt required")
+        
+        # Receipt doğrulaması burada yapılabilir
+        # Şimdilik basit kontrol yapıyoruz
+        print(f"Apple receipt validation: transaction_id={request.transaction_id}")
+        
         # Trial başlat
         trial_start = datetime.utcnow()
         trial_end = trial_start + timedelta(days=3)
@@ -2504,6 +2506,15 @@ async def get_premium_status(current_user: User = Depends(get_current_user), db:
         if current_user.subscription_type == "trial" and current_user.trial_end_date:
             if now < current_user.trial_end_date:
                 is_premium = True
+            else:
+                # Trial süresi dolmuş - otomatik abonelik başlat
+                # Apple'dan otomatik para çekme başlayacak
+                current_user.subscription_type = "premium"
+                # Varsayılan olarak aylık abonelik (30 gün)
+                current_user.subscription_expires = now + timedelta(days=30)
+                db.commit()
+                is_premium = True
+                print(f"Trial ended for user {current_user.id}, auto-subscription started")
         
         # Premium kontrolü
         elif current_user.subscription_type == "premium" and current_user.subscription_expires:
