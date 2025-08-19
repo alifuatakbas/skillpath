@@ -363,12 +363,11 @@ export default function HomeScreen({ navigation }: Props) {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={['#3b82f6', '#8b5cf6']}
-              style={styles.logoGradient}
-            >
-              <Text style={styles.logoText}>S</Text>
-            </LinearGradient>
+            <Image 
+              source={require('../../assets/Skillpath.png')} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.brandText}>SkillPath</Text>
           </View>
           
@@ -817,18 +816,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  logoGradient: {
+  logoImage: {
     width: 32,
     height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 8,
-  },
-  logoText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   brandText: {
     fontSize: 20,
@@ -1599,6 +1590,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.8)',
   },
-
-
 });
