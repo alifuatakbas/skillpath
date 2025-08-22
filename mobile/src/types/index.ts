@@ -27,6 +27,11 @@ export interface SocialLoginRequest {
   provider: string;
   access_token: string;
   id_token?: string;
+  firebase_uid?: string;
+  email?: string;
+  display_name?: string;
+  photo_url?: string;
+  user_name?: string;
 }
 
 export interface RefreshTokenRequest {

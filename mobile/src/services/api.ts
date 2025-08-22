@@ -20,6 +20,7 @@ import {
   PushTokenRequest,
   DailyReminderResponse,
   NotificationResponse,
+  SocialLoginRequest,
 } from '../types';
 
 const API_BASE_URL = AppConfig.API_BASE_URL;
@@ -299,4 +300,12 @@ export const createComment = async (
 
 export const likePost = async (postId: number): Promise<any> => {
   return apiClient.post<any>(`/api/community/posts/${postId}/like`);
+};
+
+// Social Login API
+export const socialLogin = async (data: SocialLoginRequest): Promise<AuthResponse> => {
+  const response = await apiClient.post<AuthResponse>('/api/auth/social-login', data);
+  await TokenManager.setToken(response.access_token);
+  await TokenManager.setUser(response.user);
+  return response;
 }; 

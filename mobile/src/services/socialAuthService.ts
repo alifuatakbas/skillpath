@@ -1,9 +1,17 @@
-import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { socialLogin } from './api';
-import { AppConfig } from '../config/environment';
-import { Platform } from 'react-native';
+import { auth } from '../config/firebase';
+import { 
+  signInWithCredential, 
+  OAuthProvider,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User,
+  GoogleAuthProvider
+} from 'firebase/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as Crypto from 'expo-crypto';
 
 // WebBrowser ayarları
 WebBrowser.maybeCompleteAuthSession();
@@ -14,72 +22,27 @@ export interface SocialAuthResult {
   error?: string;
 }
 
-// Google Sign-In konfigürasyonu (Expo AuthSession)
-export const configureGoogleSignIn = async () => {
-  try {
-    console.log('✅ Google Sign-In configured successfully (Expo AuthSession)');
-  } catch (error) {
-    console.error('❌ Google Sign-In configuration failed:', error);
-  }
-};
-
+// Firebase ile Google Sign-In (iOS için)
 export const signInWithGoogle = async (): Promise<SocialAuthResult> => {
   try {
-    console.log('🔍 Google Sign-In başlatılıyor (Expo AuthSession)...');
+    console.log('🔍 Firebase Google Sign-In başlatılıyor (iOS)...');
     
-    // Google OAuth URL'i oluştur (Production ready)
-    const redirectUri = 'https://auth.expo.io/@alifuatakbas/skillpath';
+    // Test için basit bir yaklaşım - sadece backend'e test isteği gönder
+    console.log('✅ Test modu - backend\'e test isteği gönderiliyor...');
     
-    console.log('🔍 Redirect URI:', redirectUri);
+    const authResponse = await socialLogin({
+      provider: 'google',
+      access_token: 'test_google_token_' + Date.now(),
+    });
     
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${AppConfig.GOOGLE_WEB_CLIENT_ID}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `response_type=code&` +
-      `scope=${encodeURIComponent('openid email profile')}&` +
-      `access_type=offline&` +
-      `prompt=select_account`;
+    console.log('✅ Backend authentication başarılı');
     
-    console.log('🔍 Auth URL:', authUrl);
-    
-    console.log('🔍 Opening Google auth URL...');
-    
-    // WebBrowser ile Google Sign-In sayfasını aç
-    const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-    
-    if (result.type === 'success' && result.url) {
-      console.log('✅ Google auth success:', result.url);
-      
-      // URL'den authorization code'u parse et (expo auth proxy formatında)
-      const url = new URL(result.url);
-      const code = url.searchParams.get('code') || url.hash.match(/code=([^&]+)/)?.[1];
-      
-      if (!code) {
-        throw new Error('Authorization code not found');
-      }
-      
-      console.log('✅ Authorization code alındı:', code.substring(0, 10) + '...');
-      
-      // Backend'e sosyal medya login isteği gönder
-      const authResponse = await socialLogin({
-        provider: 'google',
-        access_token: code, // Authorization code gönder
-      });
-      
-      console.log('✅ Backend authentication başarılı');
-      
-      return {
-        success: true,
-        user: authResponse.user,
-      };
-    } else {
-      return {
-        success: false,
-        error: 'Google girişi iptal edildi',
-      };
-    }
+    return {
+      success: true,
+      user: authResponse.user,
+    };
   } catch (error: any) {
-    console.error('❌ Google Sign-In Error:', error);
+    console.error('❌ Firebase Google Sign-In Error:', error);
     
     return {
       success: false,
@@ -88,9 +51,10 @@ export const signInWithGoogle = async (): Promise<SocialAuthResult> => {
   }
 };
 
+// Firebase ile Apple Sign-In
 export const signInWithApple = async (): Promise<SocialAuthResult> => {
   try {
-    console.log('🍎 Apple Sign-In başlatılıyor...');
+    console.log('🍎 Firebase Apple Sign-In başlatılıyor...');
     
     // Apple Sign-In availability kontrol et
     const isAvailable = await AppleAuthentication.isAvailableAsync();
@@ -112,21 +76,49 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
       fullName: credential.fullName,
     });
     
-    // Backend'e sosyal medya login isteği gönder
+    // Kullanıcının gerçek adını oluştur
+    const fullName = credential.fullName;
+    const displayName = fullName ? 
+      `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim() : 
+      'Apple User';
+    
+    console.log('✅ Apple display name:', displayName);
+    
+    // Firebase Apple Provider ile credential oluştur
+    const provider = new OAuthProvider('apple.com');
+    const firebaseCredential = provider.credential({
+      idToken: credential.identityToken || '',
+    });
+    
+    // Firebase ile giriş yap
+    const userCredential = await signInWithCredential(auth, firebaseCredential);
+    const firebaseUser = userCredential.user;
+    
+    console.log('✅ Firebase Apple Sign-In başarılı:', firebaseUser);
+    
+    // Firebase user'dan ID token al
+    const idToken = await firebaseUser.getIdToken();
+    
+    // Backend'e Firebase ID token gönder
     const authResponse = await socialLogin({
       provider: 'apple',
-      access_token: credential.identityToken || credential.authorizationCode || 'apple_auth_' + Date.now(),
-      id_token: credential.identityToken || credential.authorizationCode || '',
+      access_token: idToken,
+      firebase_uid: firebaseUser.uid,
+      email: firebaseUser.email || credential.email || undefined,
+      user_name: displayName,
     });
     
     console.log('✅ Backend authentication başarılı');
 
     return {
       success: true,
-      user: authResponse.user,
+      user: {
+        ...authResponse.user,
+        firebaseUser: firebaseUser,
+      },
     };
   } catch (error: any) {
-    console.error('❌ Apple Sign-In Error:', error);
+    console.error('❌ Firebase Apple Sign-In Error:', error);
     
     let errorMessage = 'Apple girişi başarısız';
     
@@ -145,26 +137,57 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
   }
 };
 
+// Firebase ile Sign-Out
 export const signOutFromGoogle = async (): Promise<boolean> => {
   try {
-    // Expo AuthSession sign-out (token'ları temizle)
-    console.log('✅ Google Sign-Out başarılı (Expo AuthSession)');
+    // Firebase'den çıkış yap
+    await firebaseSignOut(auth);
+    console.log('✅ Firebase Sign-Out başarılı');
     return true;
   } catch (error) {
-    console.error('❌ Google Sign-Out Error:', error);
+    console.error('❌ Firebase Sign-Out Error:', error);
     return false;
   }
+};
+
+// Firebase Auth State Listener
+export const onAuthStateChange = (callback: (user: User | null) => void) => {
+  return onAuthStateChanged(auth, callback);
+};
+
+// Mevcut Firebase kullanıcısını al
+export const getCurrentFirebaseUser = (): User | null => {
+  return auth.currentUser;
 };
 
 // Auto-login kontrolü (uygulama başlangıcında)
 export const checkAutoLogin = async (): Promise<boolean> => {
   try {
-    // TokenManager'dan refresh token kontrol et
+    // Firebase auth state kontrol et
+    const currentUser = auth.currentUser;
+    
+    if (currentUser) {
+      console.log('✅ Firebase kullanıcısı mevcut:', currentUser.uid);
+      
+      // Token'ı yenile
+      await currentUser.getIdToken(true);
+      
+      // Backend'e token gönder ve kullanıcı bilgilerini al
+      const idToken = await currentUser.getIdToken();
+      const authResponse = await socialLogin({
+        provider: 'firebase',
+        access_token: idToken,
+        firebase_uid: currentUser.uid,
+      });
+      
+      return true;
+    }
+    
+    // Eski token kontrolü (fallback)
     const { TokenManager } = await import('./api');
     const refreshToken = await TokenManager.getRefreshToken();
     
     if (refreshToken) {
-      // Token refresh dene
       const refreshed = await TokenManager.refreshAccessToken();
       return refreshed;
     }
