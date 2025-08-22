@@ -3,15 +3,10 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { socialLogin } from './api';
 import { auth } from '../config/firebase';
 import { 
-  signInWithCredential, 
-  OAuthProvider,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  User,
-  GoogleAuthProvider
+  User
 } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
-import * as Crypto from 'expo-crypto';
 
 // WebBrowser ayarları
 WebBrowser.maybeCompleteAuthSession();
@@ -84,38 +79,19 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
     
     console.log('✅ Apple display name:', displayName);
     
-    // Firebase Apple Provider ile credential oluştur
-    const provider = new OAuthProvider('apple.com');
-    const firebaseCredential = provider.credential({
-      idToken: credential.identityToken || '',
-    });
-    
-    // Firebase ile giriş yap
-    const userCredential = await signInWithCredential(auth, firebaseCredential);
-    const firebaseUser = userCredential.user;
-    
-    console.log('✅ Firebase Apple Sign-In başarılı:', firebaseUser);
-    
-    // Firebase user'dan ID token al
-    const idToken = await firebaseUser.getIdToken();
-    
-    // Backend'e Firebase ID token gönder
+    // Backend'e sosyal medya login isteği gönder
     const authResponse = await socialLogin({
       provider: 'apple',
-      access_token: idToken,
-      firebase_uid: firebaseUser.uid,
-      email: firebaseUser.email || credential.email || undefined,
-      user_name: displayName,
+      access_token: credential.identityToken || credential.authorizationCode || 'apple_auth_' + Date.now(),
+      id_token: credential.identityToken || credential.authorizationCode || '',
+      user_name: displayName, // Kullanıcının gerçek adını gönder
     });
     
     console.log('✅ Backend authentication başarılı');
 
     return {
       success: true,
-      user: {
-        ...authResponse.user,
-        firebaseUser: firebaseUser,
-      },
+      user: authResponse.user,
     };
   } catch (error: any) {
     console.error('❌ Firebase Apple Sign-In Error:', error);
@@ -185,11 +161,10 @@ export const checkAutoLogin = async (): Promise<boolean> => {
     
     // Eski token kontrolü (fallback)
     const { TokenManager } = await import('./api');
-    const refreshToken = await TokenManager.getRefreshToken();
+    const token = await TokenManager.getToken();
     
-    if (refreshToken) {
-      const refreshed = await TokenManager.refreshAccessToken();
-      return refreshed;
+    if (token) {
+      return true;
     }
     
     return false;
