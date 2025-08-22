@@ -1,9 +1,7 @@
-import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { socialLogin } from './api';
 
-// WebBrowser ayarları
-WebBrowser.maybeCompleteAuthSession();
+// Apple Authentication ayarları
 
 export interface SocialAuthResult {
   success: boolean;
@@ -11,67 +9,12 @@ export interface SocialAuthResult {
   error?: string;
 }
 
-// Google Sign-In (OAuth ile)
+// Google Sign-In kaldırıldı
 export const signInWithGoogle = async (): Promise<SocialAuthResult> => {
-  try {
-    console.log('🔍 Google Sign-In başlatılıyor...');
-    
-    // Google OAuth URL'si oluştur
-    const clientId = '977573613440-2ljuaktboadenil19bpadjb5e7vq1imv.apps.googleusercontent.com';
-    const redirectUri = 'https://auth.expo.io/@alifuatakbas/skillpath';
-    
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${clientId}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `response_type=code&` +
-      `scope=${encodeURIComponent('openid email profile')}&` +
-      `access_type=offline&` +
-      `prompt=consent&` +
-      `state=random_state_string`;
-    
-    console.log('🔗 Auth URL:', authUrl);
-    
-    // WebBrowser ile Google'a yönlendir
-    const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-    
-    console.log('✅ Google Auth result:', result);
-    
-    if (result.type === 'success' && result.url) {
-      // URL'den authorization code'u al
-      const url = new URL(result.url);
-      const code = url.searchParams.get('code');
-      
-      if (code) {
-        console.log('✅ Authorization code alındı:', code);
-        
-        // Backend'e authorization code gönder
-        const authResponse = await socialLogin({
-          provider: 'google',
-          access_token: code,
-        });
-        
-        console.log('✅ Backend authentication başarılı');
-        
-        return {
-          success: true,
-          user: authResponse.user,
-        };
-      }
-    } else if (result.type === 'cancel') {
-      throw new Error('Google girişi iptal edildi');
-    } else {
-      throw new Error('Google girişi başarısız');
-    }
-    
-    throw new Error('Google authentication failed');
-  } catch (error: any) {
-    console.error('❌ Google Sign-In Error:', error);
-    
-    return {
-      success: false,
-      error: error.message || 'Google girişi başarısız',
-    };
-  }
+  return {
+    success: false,
+    error: 'Google girişi kaldırıldı',
+  };
 };
 
 // Firebase ile Apple Sign-In
