@@ -29,7 +29,7 @@ load_dotenv()
 EXPO_PUSH_API_URL = "https://exp.host/--/api/v2/push/send"
 
 # Google OAuth Configuration
-GOOGLE_CLIENT_ID = "555670764137-4ojah5q0lknekpf26id09gi7r14b3hj0.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "977573613440-2ljuaktboadenil19bpadjb5e7vq1imv.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
 # Global scheduler flag
