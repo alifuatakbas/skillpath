@@ -28,20 +28,18 @@ load_dotenv()
 # Expo Push API Configuration
 EXPO_PUSH_API_URL = "https://exp.host/--/api/v2/push/send"
 
-# Google OAuth Configuration
-GOOGLE_CLIENT_ID = "977573613440-2ljuaktboadenil19bpadjb5e7vq1imv.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
 
 # Global scheduler flag
 notification_scheduler_running = False
 
 app = FastAPI(
     title="SkillPath API",
-    description="Modern öğrenme platformu API'si",
+    description="Modern learning platform API",
     version="1.0.0"
 )
 
-# CORS middleware - Frontend ve Mobile app için
+# CORS middleware - Frontend and Mobile app
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -50,7 +48,7 @@ app.add_middleware(
         "http://localhost:19006", # Expo web
         "exp://192.168.1.133:19000", # Expo mobile
         "http://192.168.1.133:8081", # Expo mobile HTTP
-        "*",  # Geçici olarak tüm origin'lere izin ver
+        "*",  # Temporarily allow all origins
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -78,8 +76,8 @@ class User(Base):
     is_superuser = Column(Integer, default=0)  # tinyint(1) in MySQL
     subscription_type = Column(String(20), default="free")  # free, premium, trial
     subscription_expires = Column(DateTime(timezone=True), nullable=True)
-    trial_start_date = Column(DateTime(timezone=True), nullable=True)  # Trial başlangıç tarihi
-    trial_end_date = Column(DateTime(timezone=True), nullable=True)  # Trial bitiş tarihi
+    trial_start_date = Column(DateTime(timezone=True), nullable=True)  # Trial start date
+    trial_end_date = Column(DateTime(timezone=True), nullable=True)  # Trial end date
     preferred_language = Column(String(10), default="tr")  # tr, en
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -302,24 +300,27 @@ class SkillNormalizer:
                 return SkillNormalizer.fallback_normalization(user_input)
             
             prompt = f"""
-            Kullanıcı şu skill'i öğrenmek istiyor: "{user_input}"
-            
-            Lütfen şunları yap:
-            1. Bu skill'in doğru ve standart ismini belirle
-            2. Benzer 3-5 skill öner
-            3. Kategori belirle (programming, data_science, design, business, languages, other)
-            4. Zorluk seviyesi tahmin et (beginner, intermediate, advanced)
-            5. Tahmini öğrenme süresi (hafta)
-            
-            JSON formatında döndür:
+            You are an expert learning advisor and skill categorization specialist with extensive knowledge of educational pathways, industry standards, and skill taxonomies across all domains.
+
+            TASK: Analyze and normalize the following user skill input: "{user_input}"
+
+            INSTRUCTIONS:
+            1. Standardize the skill name using industry-accepted terminology
+            2. Categorize using: programming, data_science, design, business, languages, other
+            3. Assess difficulty level: beginner, intermediate, advanced
+            4. Estimate realistic learning duration in weeks for average learner
+            5. Suggest 3-5 closely related skills that complement this learning path
+            6. Provide helpful suggestions if the input seems unclear or could be interpreted differently
+
+            RESPONSE FORMAT (JSON only):
             {{
-                "normalized_name": "Standart skill ismi",
-                "category": "kategori",
-                "difficulty": "zorluk_seviyesi",
+                "normalized_name": "Standard skill name",
+                "category": "category",
+                "difficulty": "difficulty_level",
                 "estimated_weeks": 12,
                 "similar_skills": ["skill1", "skill2", "skill3"],
                 "confidence": 0.95,
-                "suggestions": ["Bu mu demek istediniz: X?", "Belki şunu da düşünebilirsiniz: Y"]
+                "suggestions": ["Did you mean: X?", "You might also consider: Y"]
             }}
             """
             
@@ -387,14 +388,10 @@ class UserCreate(BaseModel):
     password: str
 
 class SocialLoginRequest(BaseModel):
-    provider: str  # "google" veya "apple"
+    provider: str  # "apple"
     access_token: str
     id_token: Optional[str] = None
     user_name: Optional[str] = None  # Kullanıcının gerçek adı
-    firebase_uid: Optional[str] = None
-    email: Optional[str] = None
-    display_name: Optional[str] = None
-    photo_url: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: int
@@ -816,58 +813,15 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         print(f"Register error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Kayıt işlemi başarısız")
+        raise HTTPException(status_code=500, detail="Registration failed")
 
 @app.post("/api/auth/social-login", response_model=AuthResponse)
 async def social_login(request: SocialLoginRequest, db: Session = Depends(get_db)):
-    """Sosyal medya ile giriş (Google, Apple)"""
+    """Sosyal medya ile giriş (Apple)"""
     try:
-        import requests
-        from google.oauth2 import id_token
-        from google.auth.transport import requests as google_requests
-        
         user_info = None
         
-        if request.provider == "google":
-            # Google token doğrulama
-            try:
-                # Authorization code'u access token'a çevir
-                token_url = "https://oauth2.googleapis.com/token"
-                token_data = {
-                    "client_id": GOOGLE_CLIENT_ID,
-                    "client_secret": GOOGLE_CLIENT_SECRET,
-                    "code": request.access_token,
-                    "grant_type": "authorization_code",
-                    "redirect_uri": "https://auth.expo.io/@alifuatakbas/skillpath"
-                }
-                
-                token_response = requests.post(token_url, data=token_data)
-                token_response.raise_for_status()
-                token_info = token_response.json()
-                
-                # ID token'ı doğrula
-                id_info = id_token.verify_oauth2_token(
-                    token_info.get("id_token"),
-                    google_requests.Request(),
-                    GOOGLE_CLIENT_ID
-                )
-                
-                user_info = {
-                    "email": id_info["email"],
-                    "name": id_info.get("name", ""),
-                    "picture": id_info.get("picture", "")
-                }
-                
-            except Exception as e:
-                print(f"Google token verification failed: {e}")
-                # Fallback: request'ten gelen bilgileri kullan
-                user_info = {
-                    "email": request.email or f"google_user_{hash(request.access_token)}@skillpath.com",
-                    "name": request.display_name or "Google User",
-                    "picture": request.photo_url or ""
-                }
-        
-        elif request.provider == "apple":
+        if request.provider == "apple":
             # Apple token doğrulama (basit implementasyon)
             try:
                 # Apple ID token'ı doğrula (gerçek implementasyonda Apple'ın public key'leri kullanılır)
@@ -884,42 +838,7 @@ async def social_login(request: SocialLoginRequest, db: Session = Depends(get_db
                     "picture": request.photo_url or ""
                 }
         
-        elif request.provider == "firebase":
-            # Firebase token doğrulama
-            try:
-                # Firebase ID token'ı doğrula
-                import firebase_admin
-                from firebase_admin import auth as firebase_auth
-                
-                # Firebase Admin SDK'yı başlat (eğer başlatılmamışsa)
-                try:
-                    firebase_admin.get_app()
-                except ValueError:
-                    # Firebase Admin SDK'yı başlat
-                    import firebase_admin
-                    from firebase_admin import credentials
-                    
-                    # Firebase service account key dosyası yolu
-                    cred = credentials.Certificate("path/to/serviceAccountKey.json")
-                    firebase_admin.initialize_app(cred)
-                
-                # Firebase ID token'ı doğrula
-                decoded_token = firebase_auth.verify_id_token(request.access_token)
-                
-                user_info = {
-                    "email": decoded_token.get("email") or request.email or f"firebase_user_{request.firebase_uid}@skillpath.com",
-                    "name": decoded_token.get("name") or request.display_name or "Firebase User",
-                    "picture": decoded_token.get("picture") or request.photo_url or ""
-                }
-                
-            except Exception as e:
-                print(f"Firebase token verification failed: {e}")
-                # Fallback: request'ten gelen bilgileri kullan
-                user_info = {
-                    "email": request.email or f"firebase_user_{request.firebase_uid}@skillpath.com",
-                    "name": request.display_name or "Firebase User",
-                    "picture": request.photo_url or ""
-                }
+
         
         else:
             raise HTTPException(status_code=400, detail="Geçersiz provider")
@@ -962,7 +881,7 @@ async def social_login(request: SocialLoginRequest, db: Session = Depends(get_db
         raise
     except Exception as e:
         print(f"Social login error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Sosyal medya girişi başarısız")
+        raise HTTPException(status_code=500, detail="Social media login failed")
 
 @app.post("/api/courses/{course_id}/enroll")
 async def enroll_course(course_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -970,7 +889,7 @@ async def enroll_course(course_id: int, current_user: User = Depends(get_current
     course = db.query(Course).filter(Course.id == course_id).first()
     
     if not course:
-        raise HTTPException(status_code=404, detail="Kurs bulunamadı")
+        raise HTTPException(status_code=404, detail="Course not found")
     
     if course_id in current_user.enrolled_courses:
         raise HTTPException(status_code=400, detail="Bu kursa zaten kayıtlısınız")
@@ -980,7 +899,7 @@ async def enroll_course(course_id: int, current_user: User = Depends(get_current
     
     return {
         "success": True,
-        "message": f"{course.title} kursuna başarıyla kaydoldunuz",
+        "message": f"Successfully enrolled in {course.title} course",
         "course_id": course_id,
         "user_id": current_user.id
     }
@@ -1014,41 +933,48 @@ async def generate_assessment(request: AssessmentRequest):
             # Fallback sorular
             questions = [
                 AssessmentQuestion(
-                    question=f"{request.skill_name} konusunda ne kadar deneyiminiz var?",
-                    options=["Hiç deneyimim yok", "Temel seviye", "Orta seviye", "İleri seviye"],
+                    question=f"What is your experience level with {request.skill_name}?",
+                    options=["No experience", "Beginner level", "Intermediate level", "Advanced level"],
                     question_type="multiple_choice"
                 ),
                 AssessmentQuestion(
-                    question="Günde kaç saat çalışmayı planlıyorsunuz?",
-                    options=["1 saat", "2-3 saat", "4-5 saat", "6+ saat"],
+                    question="How many hours per day do you plan to study?",
+                    options=["1 hour", "2-3 hours", "4-5 hours", "6+ hours"],
                     question_type="multiple_choice"
                 ),
                 AssessmentQuestion(
-                    question="Hangi öğrenme stilini tercih edersiniz?",
-                    options=["Video izleyerek", "Kitap okuyarak", "Uygulama yaparak", "Karma"],
+                    question="Which learning style do you prefer?",
+                    options=["Video tutorials", "Reading books", "Hands-on practice", "Mixed approach"],
                     question_type="multiple_choice"
                 )
             ]
         else:
             # AI ile dinamik sorular oluştur
             prompt = f"""
-            "{request.skill_name}" skill'i için {request.target_duration_weeks} haftalık öğrenme planı yapacağız.
-            
-            Kullanıcının mevcut seviyesini ve ihtiyaçlarını anlamak için 3-5 soru oluştur.
-            
-            JSON formatında döndür:
-{{
-  "questions": [
-    {{
-                        "question": "Soru metni",
-                        "options": ["Seçenek 1", "Seçenek 2", "Seçenek 3", "Seçenek 4"],
-      "question_type": "multiple_choice"
-                    }}
-  ]
-}}
-            
-            Türkçe sorular oluştur.
-"""
+            You are an expert educational assessor and learning path designer with deep expertise in creating personalized learning assessments across all skill domains.
+
+            CONTEXT: Creating a {request.target_duration_weeks}-week learning plan for "{request.skill_name}"
+
+            TASK: Design 3-5 assessment questions to determine the learner's current level, learning preferences, and specific needs for this skill.
+
+            REQUIREMENTS:
+            - Questions must be diagnostic and reveal skill level accurately
+            - Include questions about prior experience, preferred learning methods, and specific goals
+            - Each question should have 4 meaningful, distinct answer options
+            - Focus on practical application and real-world context
+            - Questions should be in English language
+
+            RESPONSE FORMAT (JSON only):
+            {{
+              "questions": [
+                {{
+                  "question": "Question text in English",
+                  "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+                  "question_type": "multiple_choice"
+                }}
+              ]
+            }}
+            """
             
             response = openai_client.chat.completions.create(
                 model="gpt-3.5-turbo",
@@ -1070,11 +996,11 @@ async def generate_assessment(request: AssessmentRequest):
         
     except Exception as e:
         print(f"Assessment generation failed: {e}")
-        # Fallback sorular
+        # Fallback questions
         questions = [
             AssessmentQuestion(
-                question=f"{request.skill_name} konusunda ne kadar deneyiminiz var?",
-                options=["Hiç deneyimim yok", "Temel seviye", "Orta seviye", "İleri seviye"],
+                question=f"What is your experience level with {request.skill_name}?",
+                options=["No experience", "Beginner level", "Intermediate level", "Advanced level"],
                 question_type="multiple_choice"
             )
         ]
@@ -1103,72 +1029,76 @@ async def generate_roadmap_new(
         daily_hours = request.daily_hours
         
         if not openai_client:
-            # Basit fallback roadmap
+            # Simple fallback roadmap
             roadmap_data = {
-                "title": f"{skill_name} Öğrenme Yol Haritası",
+                "title": f"{skill_name} Learning Roadmap",
                 "total_weeks": target_weeks,
                 "steps": [
                     {
                         "step_order": 1,
-                        "title": f"{skill_name} Temelleri",
-                        "description": "Temel kavramları öğrenin",
+                        "title": f"{skill_name} Fundamentals",
+                        "description": "Learn basic concepts",
                         "estimated_hours": 20,
-                        "resources": ["Online kurslar", "Dokümantasyon"],
-                        "projects": ["Basit proje"]
+                        "resources": ["Online courses", "Documentation"],
+                        "projects": ["Simple project"]
                     },
                     {
                         "step_order": 2,
-                        "title": "Uygulamalı Projeler",
-                        "description": "Pratik yapın",
+                        "title": "Practical Projects",
+                        "description": "Practice hands-on",
                         "estimated_hours": target_weeks * 5,
-                        "resources": ["GitHub projeleri", "Pratik örnekler"],
-                        "projects": ["Orta seviye proje"]
+                        "resources": ["GitHub projects", "Practical examples"],
+                        "projects": ["Intermediate project"]
                     },
                     {
                         "step_order": 3,
-                        "title": "İleri Seviye Konular",
-                        "description": "Derinlemesine öğrenin",
+                        "title": "Advanced Topics",
+                        "description": "Learn in depth",
                         "estimated_hours": 30,
-                        "resources": ["İleri seviye kurslar", "Uzman blog yazıları"],
-                        "projects": ["Kapsamlı proje"]
+                        "resources": ["Advanced courses", "Expert blog posts"],
+                        "projects": ["Comprehensive project"]
                     }
                 ]
             }
         else:
             # AI ile detaylı roadmap oluştur
             prompt = f"""
-            Kullanıcı "{skill_name}" öğrenmek istiyor.
-            - Mevcut seviye: {current_level}
-            - Hedef süre: {target_weeks} hafta
-            - Günlük çalışma: {daily_hours} saat
-            
-            Detaylı bir öğrenme yol haritası oluştur. Her adım için:
-            - Başlık
-            - Açıklama
-            - Tahmini süre (hafta)
-            - Önerilen kaynaklar
-            - Yapılacak projeler
-            
-            JSON formatında döndür:
-{{
-    "roadmap": {{
-                    "title": "Roadmap başlığı",
-        "total_weeks": {target_weeks},
-        "steps": [
-            {{
-                "step_order": 1,
-                            "title": "Adım başlığı",
-                            "description": "Detaylı açıklama",
-                            "estimated_hours": 20,
-                            "resources": ["Kaynak 1", "Kaynak 2"],
-                            "projects": ["Proje 1", "Proje 2"]
-            }}
-        ]
-    }}
-}}
+            You are a world-class curriculum designer and learning expert with 15+ years of experience creating personalized learning paths across technology, business, and creative domains. You specialize in breaking down complex skills into manageable, progressive learning modules.
 
-            Türkçe oluştur.
-"""
+            LEARNER PROFILE:
+            - Target Skill: "{skill_name}"
+            - Current Level: {current_level}
+            - Available Time: {target_weeks} weeks, {daily_hours} hours per day
+            - Total Learning Budget: {target_weeks * 7 * daily_hours} hours
+
+            MISSION: Design a comprehensive, step-by-step learning roadmap that transforms this learner from their current level to proficiency in the target skill.
+
+            DESIGN PRINCIPLES:
+            - Each step should build logically on the previous one
+            - Balance theory with hands-on practice (70% practical, 30% theory)
+            - Include real-world projects that demonstrate skill progression
+            - Recommend high-quality, accessible resources
+            - Ensure each step has clear success criteria
+            - Content should be in English
+
+            RESPONSE FORMAT (JSON only):
+            {{
+                "roadmap": {{
+                    "title": "Learning Roadmap Title in English",
+                    "total_weeks": {target_weeks},
+                    "steps": [
+                        {{
+                            "step_order": 1,
+                            "title": "Step Title in English",
+                            "description": "Detailed step description explaining what will be learned and why it's important",
+                            "estimated_hours": 20,
+                            "resources": ["Specific resource 1", "Specific resource 2"],
+                            "projects": ["Practical project 1", "Practical project 2"]
+                        }}
+                    ]
+                }}
+            }}
+            """
             
             response = openai_client.chat.completions.create(
                 model="gpt-4",
@@ -1184,7 +1114,7 @@ async def generate_roadmap_new(
             user_id=current_user.id,
             skill_id=0,  # Dinamik skill için 0
             title=roadmap_data["title"],
-            description=f"{skill_name} için kişiselleştirilmiş öğrenme yolu",
+            description=f"Personalized learning path for {skill_name}",
             total_weeks=target_weeks,
             difficulty_level=current_level,
             roadmap_data=json.dumps(roadmap_data),
@@ -1215,12 +1145,12 @@ async def generate_roadmap_new(
             success=True,
             roadmap_id=new_roadmap.id,
             roadmap=roadmap_data,
-            message="Kişiselleştirilmiş roadmap başarıyla oluşturuldu!"
+            message="Personalized roadmap created successfully!"
         )
             
     except Exception as e:
         print(f"Roadmap generation failed: {e}")
-        raise HTTPException(status_code=500, detail="Roadmap oluşturulamadı")
+        raise HTTPException(status_code=500, detail="Roadmap could not be created")
 
 @app.get("/api/roadmap/{roadmap_id}")
 async def get_roadmap(
@@ -1241,14 +1171,14 @@ async def get_roadmap(
         print(f"Roadmap found: {roadmap is not None}")
         
         if not roadmap:
-            raise HTTPException(status_code=404, detail="Roadmap bulunamadı")
+            raise HTTPException(status_code=404, detail="Roadmap not found")
         
-        # Roadmap adımlarını getir
+        # Get roadmap steps
         steps = db.query(RoadmapStep).filter(
             RoadmapStep.roadmap_id == roadmap_id
         ).order_by(RoadmapStep.step_order).all()
         
-        # Response formatını düzenle
+        # Format response
         steps_data = []
         for step in steps:
             step_resources = json.loads(step.resources) if step.resources else []
@@ -1261,7 +1191,7 @@ async def get_roadmap(
                 "description": step.description,
                 "estimated_hours": step.estimated_hours or 0,
                 "resources": step_resources,
-                "projects": step_prerequisites,  # Prerequisites'ı projeler olarak kullan
+                "projects": step_prerequisites,  # Use prerequisites as projects
                 "is_completed": bool(step.is_completed)
             })
         
@@ -1281,7 +1211,7 @@ async def get_roadmap(
         raise
     except Exception as e:
         print(f"Get roadmap failed: {e}")
-        raise HTTPException(status_code=500, detail="Roadmap getirilemedi")
+        raise HTTPException(status_code=500, detail="Could not retrieve roadmap")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
@@ -1504,9 +1434,9 @@ async def complete_step(
         ).first()
         
         if not step:
-            raise HTTPException(status_code=404, detail="Step bulunamadı")
+            raise HTTPException(status_code=404, detail="Step not found")
         
-        # UserProgress kaydını güncelle veya oluştur
+        # Update or create UserProgress record
         progress = db.query(UserProgress).filter(
             UserProgress.user_id == user_id,
             UserProgress.roadmap_id == roadmap_id,
@@ -1530,9 +1460,9 @@ async def complete_step(
         
         db.commit()
         
-        # Step completion bildirimi gönder
+        # Send step completion notification
         try:
-            # Kullanıcının bildirim tercihlerini kontrol et
+            # Check user's notification preferences
             prefs = db.query(NotificationPreference).filter(
                 NotificationPreference.user_id == user_id
             ).first()
@@ -1542,7 +1472,7 @@ async def complete_step(
                 notification = Notification(
                     user_id=user_id,
                     title="🎉 Adım Tamamlandı!",
-                    message=f"'{step.title}' adımını başarıyla tamamladınız!",
+                    message=f"You have successfully completed the '{step.title}' step!",
                     notification_type="step_completion",
                     roadmap_title=roadmap.title,
                     step_title=step.title,
@@ -1554,8 +1484,8 @@ async def complete_step(
                 # Push notification gönder
                 await send_push_notification(
                     user_id, 
-                    "🎉 Adım Tamamlandı!", 
-                    f"'{step.title}' adımını başarıyla tamamladınız!",
+                    "🎉 Step Completed!", 
+                    f"You have successfully completed the '{step.title}' step!",
                     db
                 )
         except Exception as e:
@@ -1573,7 +1503,7 @@ async def complete_step(
         
         return {
             "success": True,
-            "message": "Step başarıyla tamamlandı",
+            "message": "Step completed successfully",
             "step_id": step_id,
             "completed_steps": completed_steps,
             "total_steps": total_steps,
@@ -2231,7 +2161,7 @@ async def register_push_token(
         
         db.commit()
         
-        return {"success": True, "message": "Push token başarıyla kaydedildi"}
+        return {"success": True, "message": "Push token saved successfully"}
         
     except Exception as e:
         print(f"Register push token error: {e}")
