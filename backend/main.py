@@ -391,7 +391,10 @@ class SocialLoginRequest(BaseModel):
     provider: str  # "apple"
     access_token: str
     id_token: Optional[str] = None
-    user_name: Optional[str] = None  # Kullanıcının gerçek adı
+    user_name: Optional[str] = None  # User's real name
+    email: Optional[str] = None
+    display_name: Optional[str] = None
+    photo_url: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: int
@@ -822,9 +825,9 @@ async def social_login(request: SocialLoginRequest, db: Session = Depends(get_db
         user_info = None
         
         if request.provider == "apple":
-            # Apple token doğrulama (basit implementasyon)
+            # Apple token verification (simple implementation)
             try:
-                # Apple ID token'ı doğrula (gerçek implementasyonda Apple'ın public key'leri kullanılır)
+                # Verify Apple ID token (in real implementation, use Apple's public keys)
                 user_info = {
                     "email": request.email or f"apple_user_{hash(request.access_token)}@skillpath.com",
                     "name": request.user_name or request.display_name or "Apple User",
@@ -892,9 +895,9 @@ async def enroll_course(course_id: int, current_user: User = Depends(get_current
         raise HTTPException(status_code=404, detail="Course not found")
     
     if course_id in current_user.enrolled_courses:
-        raise HTTPException(status_code=400, detail="Bu kursa zaten kayıtlısınız")
+        raise HTTPException(status_code=400, detail="You are already enrolled in this course")
     
-    # Kullanıcının enrolled_courses listesini güncelle
+    # Update user's enrolled_courses list
     current_user.enrolled_courses.append(course_id)
     
     return {
