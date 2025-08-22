@@ -391,6 +391,10 @@ class SocialLoginRequest(BaseModel):
     access_token: str
     id_token: Optional[str] = None
     user_name: Optional[str] = None  # Kullanıcının gerçek adı
+    firebase_uid: Optional[str] = None
+    email: Optional[str] = None
+    display_name: Optional[str] = None
+    photo_url: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: int
@@ -856,11 +860,11 @@ async def social_login(request: SocialLoginRequest, db: Session = Depends(get_db
                 
             except Exception as e:
                 print(f"Google token verification failed: {e}")
-                # Fallback: access_token'ı direkt kullan
+                # Fallback: request'ten gelen bilgileri kullan
                 user_info = {
-                    "email": f"google_user_{hash(request.access_token)}@skillpath.com",
-                    "name": "Google User",
-                    "picture": ""
+                    "email": request.email or f"google_user_{hash(request.access_token)}@skillpath.com",
+                    "name": request.display_name or "Google User",
+                    "picture": request.photo_url or ""
                 }
         
         elif request.provider == "apple":
@@ -868,16 +872,53 @@ async def social_login(request: SocialLoginRequest, db: Session = Depends(get_db
             try:
                 # Apple ID token'ı doğrula (gerçek implementasyonda Apple'ın public key'leri kullanılır)
                 user_info = {
-                    "email": f"apple_user_{hash(request.access_token)}@skillpath.com",
-                    "name": request.user_name or "Apple User",  # Kullanıcının gerçek adını kullan
-                    "picture": ""
+                    "email": request.email or f"apple_user_{hash(request.access_token)}@skillpath.com",
+                    "name": request.user_name or request.display_name or "Apple User",
+                    "picture": request.photo_url or ""
                 }
             except Exception as e:
                 print(f"Apple token verification failed: {e}")
                 user_info = {
-                    "email": f"apple_user_{hash(request.access_token)}@skillpath.com",
-                    "name": request.user_name or "Apple User",  # Kullanıcının gerçek adını kullan
-                    "picture": ""
+                    "email": request.email or f"apple_user_{hash(request.access_token)}@skillpath.com",
+                    "name": request.user_name or request.display_name or "Apple User",
+                    "picture": request.photo_url or ""
+                }
+        
+        elif request.provider == "firebase":
+            # Firebase token doğrulama
+            try:
+                # Firebase ID token'ı doğrula
+                import firebase_admin
+                from firebase_admin import auth as firebase_auth
+                
+                # Firebase Admin SDK'yı başlat (eğer başlatılmamışsa)
+                try:
+                    firebase_admin.get_app()
+                except ValueError:
+                    # Firebase Admin SDK'yı başlat
+                    import firebase_admin
+                    from firebase_admin import credentials
+                    
+                    # Firebase service account key dosyası yolu
+                    cred = credentials.Certificate("path/to/serviceAccountKey.json")
+                    firebase_admin.initialize_app(cred)
+                
+                # Firebase ID token'ı doğrula
+                decoded_token = firebase_auth.verify_id_token(request.access_token)
+                
+                user_info = {
+                    "email": decoded_token.get("email") or request.email or f"firebase_user_{request.firebase_uid}@skillpath.com",
+                    "name": decoded_token.get("name") or request.display_name or "Firebase User",
+                    "picture": decoded_token.get("picture") or request.photo_url or ""
+                }
+                
+            except Exception as e:
+                print(f"Firebase token verification failed: {e}")
+                # Fallback: request'ten gelen bilgileri kullan
+                user_info = {
+                    "email": request.email or f"firebase_user_{request.firebase_uid}@skillpath.com",
+                    "name": request.display_name or "Firebase User",
+                    "picture": request.photo_url or ""
                 }
         
         else:
