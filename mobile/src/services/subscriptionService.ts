@@ -55,14 +55,13 @@ class SubscriptionService {
     if (this.isInitialized) return;
     
     try {
-      console.log('🚀 IAP: Initializing...');
-      console.log('📱 Bundle ID: com.charrly.mobile');
+      
       
       // Expo IAP otomatik olarak başlatılır
       this.isInitialized = true;
-      console.log('✅ IAP: Initialized successfully');
-    } catch (error) {
-      console.error('❌ IAP: Failed to initialize:', error);
+      
+      } catch (error) {
+        // IAP initialization failed
       this.isInitialized = true;
     }
   }
@@ -74,7 +73,6 @@ class SubscriptionService {
       // Get user data from AsyncStorage
       const userData = await AsyncStorage.getItem('user');
       if (!userData) {
-        console.log('❌ No user data found');
         return {
           isActive: false,
           productId: null,
@@ -83,12 +81,10 @@ class SubscriptionService {
       }
 
       const user = JSON.parse(userData);
-      console.log('👤 User data:', user);
 
       // Check if user has premium from backend user data
       const isPremium = user.subscription_type === 'premium';
       
-      console.log('🔍 Premium status:', isPremium);
       
       return {
         isActive: isPremium,
@@ -96,7 +92,6 @@ class SubscriptionService {
         expiryDate: user.subscription_expires ? new Date(user.subscription_expires) : null,
       };
     } catch (error) {
-      console.error('❌ Failed to check subscription:', error);
       return {
         isActive: false,
         productId: null,
@@ -109,16 +104,11 @@ class SubscriptionService {
     await this.initialize();
     
     try {
-      console.log('🔍 IAP: Requesting products...');
-      console.log('📦 Product IDs:', [PRODUCT_IDS.MONTHLY, PRODUCT_IDS.YEARLY]);
       
       // Expo IAP'de products useIAP hook ile alınır
       // Bu fonksiyon fallback planları döndürür
-      console.log('⚠️ IAP: Using fallback plans - Products should be fetched via useIAP hook');
-      console.log('🔧 Check App Store Connect: Product status should be "Ready to Submit" or "Approved"');
       return FALLBACK_PLANS;
     } catch (error) {
-      console.error('❌ IAP: Failed to get products:', error);
       return FALLBACK_PLANS;
     }
   }
@@ -144,10 +134,8 @@ class SubscriptionService {
               text: 'Satın Al',
               onPress: async () => {
                 try {
-                  console.log('🛒 Processing App Store purchase...');
                   
                   // Expo IAP'de purchase useIAP hook ile yapılır
-                  console.log('⚠️ IAP: Purchase should be handled via useIAP hook');
                     
                   // Backend'e satın alma bilgisini gönder (test için)
                     const token = await AsyncStorage.getItem('skillpath_token');
@@ -169,7 +157,6 @@ class SubscriptionService {
 
                     if (response.ok) {
                       const result = await response.json();
-                      console.log('✅ Premium purchase successful:', result);
                       
                       // User data'sını güncelle
                       const userData = await AsyncStorage.getItem('user');
@@ -186,12 +173,10 @@ class SubscriptionService {
                       Alert.alert('🎉 Başarılı!', 'Premium aboneliği aktif edildi!');
                       resolve(true);
                     } else {
-                      console.error('❌ Premium purchase failed');
                       Alert.alert('❌ Hata', 'Satın alma işlemi başarısız');
                     resolve(false);
                   }
                 } catch (error) {
-                  console.error('❌ Premium purchase error:', error);
                   Alert.alert('❌ Hata', 'Beklenmeyen bir hata oluştu');
                   resolve(false);
                 }
@@ -201,7 +186,6 @@ class SubscriptionService {
         );
       });
     } catch (error: any) {
-      console.error('Purchase failed:', error);
       return false;
     }
   }
@@ -212,7 +196,6 @@ class SubscriptionService {
       const status = await this.checkSubscriptionStatus();
       return status.isActive;
     } catch (error) {
-      console.error('Restore failed:', error);
       return false;
     }
   }

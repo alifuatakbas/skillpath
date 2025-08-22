@@ -14,7 +14,6 @@ const TrialWrapper: React.FC<TrialWrapperProps> = ({ children, navigation }) => 
 
   useEffect(() => {
     if (!isLoading) {
-      console.log('TrialWrapper Debug:', { isPremium, trialDaysLeft, isLoading, showPaywall });
       
       // Premium değilse paywall göster
       if (!isPremium) {

@@ -52,7 +52,6 @@ export default function CreatePostScreen({ navigation }: Props) {
         [{ text: 'Tamam', onPress: () => navigation.goBack() }]
       );
     } catch (error) {
-      console.error('Create post error:', error);
       Alert.alert('Hata', 'Gönderi oluşturulurken bir hata oluştu.');
     } finally {
       setLoading(false);

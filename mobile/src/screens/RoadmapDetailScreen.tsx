@@ -25,7 +25,6 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
       const data = await getRoadmapProgress(roadmapId);
       setRoadmapData(data);
     } catch (error) {
-      console.error('Roadmap detail load error:', error);
       Alert.alert('Hata', 'Roadmap detayları yüklenemedi');
     } finally {
       setLoading(false);
@@ -51,7 +50,6 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
       // Reload data
       await loadRoadmapData();
     } catch (error) {
-      console.error('Toggle step completion error:', error);
       Alert.alert('Hata', 'Adım durumu güncellenemedi');
     }
   };

@@ -55,7 +55,6 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
       loadPreferences();
       loadTimezoneInfo();
     } catch (error) {
-      console.error('Auth check failed:', error);
       setLoading(false);
     }
   };
@@ -64,9 +63,7 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
     try {
       const info = await detectTimezone();
       setTimezoneInfo(info);
-      console.log('Timezone detected:', info);
     } catch (error) {
-      console.error('Timezone detection failed:', error);
     }
   };
 
@@ -76,7 +73,6 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
       const prefs = await getNotificationPreferences();
       setPreferences(prefs);
     } catch (error) {
-      console.error('Failed to load notification preferences:', error);
       
       // Auth hatası kontrolü
       if (error instanceof Error && error.message.includes('Oturum süresi dolmuş')) {
@@ -123,7 +119,6 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
       
       Alert.alert('Başarılı', 'Bildirim ayarları güncellendi');
     } catch (error) {
-      console.error('Failed to save notification preferences:', error);
       Alert.alert('Hata', 'Bildirim ayarları kaydedilemedi');
     } finally {
       setSaving(false);

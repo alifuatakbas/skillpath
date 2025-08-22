@@ -41,7 +41,6 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
       
       loadNotifications();
     } catch (error) {
-      console.error('Auth check failed:', error);
       setLoading(false);
     }
   };
@@ -52,7 +51,6 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
       const data = await getNotificationHistory(50); // Son 50 bildirim
       setNotifications(data);
     } catch (error) {
-      console.error('Failed to load notifications:', error);
       
       // Auth hatası kontrolü
       if (error instanceof Error && error.message.includes('Oturum süresi dolmuş')) {

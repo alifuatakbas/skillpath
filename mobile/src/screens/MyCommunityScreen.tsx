@@ -61,7 +61,6 @@ export default function MyCommunityScreen({ navigation }: Props) {
       const myPosts = await getCommunityPosts('my');
       setPosts(myPosts);
     } catch (error) {
-      console.error('Load my posts error:', error);
       Alert.alert('Hata', 'Postlar yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -74,7 +73,6 @@ export default function MyCommunityScreen({ navigation }: Props) {
       const userRoadmaps = await getUserRoadmaps();
       setRoadmaps(userRoadmaps);
     } catch (error) {
-      console.error('Load my roadmaps error:', error);
       Alert.alert('Hata', 'Roadmaplar yüklenirken bir hata oluştu');
     } finally {
       setRoadmapsLoading(false);
@@ -90,7 +88,6 @@ export default function MyCommunityScreen({ navigation }: Props) {
           : post
       ));
     } catch (error) {
-      console.error('Toggle like error:', error);
       Alert.alert('Hata', 'Beğeni işlemi başarısız oldu');
     }
   };
@@ -104,7 +101,6 @@ export default function MyCommunityScreen({ navigation }: Props) {
           : reply
       ));
     } catch (error) {
-      console.error('Toggle reply like error:', error);
       Alert.alert('Hata', 'Yorum beğenisi başarısız oldu');
     }
   };
@@ -132,7 +128,6 @@ export default function MyCommunityScreen({ navigation }: Props) {
       setShowNewPost(false);
       Alert.alert('Başarılı', 'Soru paylaşıldı!');
     } catch (error) {
-      console.error('Create post error:', error);
       Alert.alert('Hata', 'Post oluşturulurken bir hata oluştu');
     } finally {
       setSubmitting(false);
@@ -145,7 +140,6 @@ export default function MyCommunityScreen({ navigation }: Props) {
       setReplies(postReplies);
       setShowReplies(postId);
     } catch (error) {
-      console.error('Load replies error:', error);
       Alert.alert('Hata', 'Yorumlar yüklenirken bir hata oluştu');
     }
   };
@@ -213,7 +207,6 @@ export default function MyCommunityScreen({ navigation }: Props) {
       
       Alert.alert('Başarılı', 'Yorum eklendi!');
     } catch (error) {
-      console.error('Create reply error:', error);
       Alert.alert('Hata', 'Yorum eklenirken bir hata oluştu');
     } finally {
       setReplySubmitting(false);

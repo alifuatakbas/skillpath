@@ -23,12 +23,10 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       // Get token first
       const token = await AsyncStorage.getItem('skillpath_token');
       if (!token) {
-        console.log('❌ No token found');
         setIsPremium(false);
         return;
       }
 
-      console.log('🔑 Token found, checking premium status...');
 
       // ✅ Backend'den güncel premium durumunu çek
       try {
@@ -43,7 +41,6 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         if (response.ok) {
           const premiumData = await response.json();
-          console.log('🔍 Backend premium status:', premiumData);
           
           // Backend'den gelen premium durumunu kullan
           // Bu trial aktifse veya abonelik varsa true olur
@@ -62,13 +59,10 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
             await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
           }
           
-          console.log('✅ Premium status updated from backend:', isPremiumStatus);
           return;
         } else {
-          console.log('⚠️ Backend premium check failed, status:', response.status);
         }
       } catch (backendError) {
-        console.log('⚠️ Backend premium check error:', backendError);
       }
 
       // Fallback: Local data kullan (varsa)
@@ -76,15 +70,12 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (userData) {
         const user = JSON.parse(userData);
         const isPremiumLocal = user.subscription_type === 'premium';
-        console.log('🔍 Using local premium status:', isPremiumLocal);
         setIsPremium(isPremiumLocal);
       } else {
-        console.log('⚠️ No user data available, defaulting to free');
         setIsPremium(false);
       }
       
     } catch (error) {
-      console.error('❌ Failed to check subscription:', error);
       setIsPremium(false);
     }
   };
@@ -98,7 +89,6 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
       // Backend'den trial durumunu kontrol et
       const token = await AsyncStorage.getItem('skillpath_token');
       if (!token) {
-        console.log('❌ No token found for trial check');
         return;
       }
 
@@ -113,18 +103,14 @@ export const PremiumProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (response.ok) {
         const trialData = await response.json();
-        console.log('🔍 Trial status from backend:', trialData);
         
         setTrialDaysLeft(trialData.days_left || 0);
         setTrialExpiryDate(trialData.expiry_date ? new Date(trialData.expiry_date) : null);
         
         // Premium durumunu burada değiştirme, sadece trial bilgilerini güncelle
-        console.log('📅 Trial days left:', trialData.days_left);
       } else {
-        console.log('⚠️ Failed to get trial status from backend');
       }
     } catch (error) {
-      console.error('❌ Failed to check trial status:', error);
     }
   };
 

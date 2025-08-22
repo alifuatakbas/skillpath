@@ -72,15 +72,12 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   useEffect(() => {
     // Store'dan ürünleri yükle
     if (connected) {
-      console.log('🔗 IAP Connected, requesting products...');
       requestProducts({ skus: ['skillpath_premium_monthly', 'skillpath_premium_yearly'], type: 'subs' });
     } else {
-      console.log('❌ IAP Not connected');
     }
   }, [connected, requestProducts]);
 
   useEffect(() => {
-    console.log('📦 Products loaded:', products);
   }, [products]);
 
   const handleStartTrial = async () => {
@@ -94,7 +91,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
       const selectedPlanData = plans.find(plan => plan.productId === selectedPlan);
       
       if (selectedPlanData) {
-        console.log('🛒 Starting purchase for:', selectedPlan);
         
         // expo-iap ile satın alma işlemini başlat
         const purchase = await requestPurchase({
@@ -102,7 +98,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
           type: 'subs'
         } as any);
 
-        console.log('📦 Purchase result:', purchase);
 
         // Eğer mevcut satın alma varsa, onu kullanma
         if (purchase && purchase.ownershipType === 'PURCHASED') {
@@ -113,7 +108,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
             const token = await AsyncStorage.getItem('skillpath_token');
             const { AppConfig } = await import('../config/environment');
             
-            console.log('🌐 Sending trial start request to backend...');
             
             const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/start-trial`, {
               method: 'POST',
@@ -129,7 +123,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
             });
 
             if (response.ok) {
-              console.log('✅ Backend trial start successful');
               
               // Premium durumunu yenile - bu trial'ı aktif edecek
               await refreshSubscription();
@@ -146,7 +139,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
               );
             } else {
               const errorData = await response.text();
-              console.error('❌ Backend trial start failed:', response.status, errorData);
               Alert.alert('Hata', 'Trial başlatılamadı. Lütfen tekrar deneyin.');
             }
           }
@@ -155,21 +147,17 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
         // YENİ: Apple'dan onay alındıktan sonra backend'e gönder
         if (purchase && purchase.transactionId) {
-          console.log('✅ Apple purchase confirmed, starting trial...');
           
           // Receipt'i doğrula
           try {
             const validationResult = await validateReceipt(purchase.transactionId);
-            console.log('🔍 Receipt validation:', validationResult);
           } catch (validationError) {
-            console.warn('⚠️ Receipt validation failed:', validationError);
           }
           
           // Backend'e trial başlatma isteği gönder
           const token = await AsyncStorage.getItem('skillpath_token');
           const { AppConfig } = await import('../config/environment');
           
-          console.log('🌐 Sending trial start request to backend...');
           
           const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/start-trial`, {
             method: 'POST',
@@ -185,7 +173,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
           });
 
           if (response.ok) {
-            console.log('✅ Backend trial start successful');
             
             // Premium durumunu yenile
             await refreshSubscription();
@@ -202,18 +189,15 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
             );
           } else {
             const errorData = await response.text();
-            console.error('❌ Backend trial start failed:', response.status, errorData);
             Alert.alert('Hata', 'Trial başlatılamadı. Lütfen tekrar deneyin.');
           }
         } else {
-          console.log('❌ Purchase failed or incomplete:', purchase);
           Alert.alert('Hata', 'Satın alma işlemi tamamlanamadı. Lütfen tekrar deneyin.');
         }
       } else {
         Alert.alert('Hata', 'Seçilen plan bulunamadı.');
       }
     } catch (error: any) {
-      console.error('❌ Trial error:', error);
       
       // Kullanıcı iptal ettiyse farklı mesaj göster
       if (error?.message?.includes('cancel') || error?.message?.includes('user')) {

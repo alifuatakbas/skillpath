@@ -70,7 +70,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
         });
       }
     } catch (error) {
-      console.error('Profile load error:', error);
       Alert.alert('Hata', 'Profil yüklenemedi');
     } finally {
       setLoading(false);

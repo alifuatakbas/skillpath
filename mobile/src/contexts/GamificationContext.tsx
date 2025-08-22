@@ -143,7 +143,6 @@ export const GamificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         setGamificationData(parsedData);
       }
     } catch (error) {
-      console.error('Failed to load gamification data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -153,7 +152,6 @@ export const GamificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       await AsyncStorage.setItem('gamification_data', JSON.stringify(data));
     } catch (error) {
-      console.error('Failed to save gamification data:', error);
     }
   };
 

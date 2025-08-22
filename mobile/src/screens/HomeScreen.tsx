@@ -94,12 +94,10 @@ export default function HomeScreen({ navigation }: Props) {
         setIsLoggedIn(true);
         setShowAuthModal(false);
         refreshSubscription();
-        console.log('✅ Apple login successful');
       } else {
         setError(result.error || 'Apple girişi başarısız');
       }
     } catch (error) {
-      console.error('Apple login error:', error);
       setError('Apple girişi başarısız');
     } finally {
       setLoading(false);
@@ -119,7 +117,6 @@ export default function HomeScreen({ navigation }: Props) {
       const userProfile = await getOwnProfile();
       setProfile(userProfile);
     } catch (error) {
-      console.error('Profile load error:', error);
     }
   };
 
@@ -144,16 +141,13 @@ export default function HomeScreen({ navigation }: Props) {
         
         if (userData) {
           // User data varsa otomatik login yap
-          console.log('🔄 Auto-login: User found in storage:', userData.email);
           setIsLoggedIn(true);
           setUser(userData);
           
           // Premium status'u da refresh et
           await refreshSubscription();
-          console.log('✅ Auto-login successful');
         } else {
           // Token var ama user data yok - backend'den al
-          console.log('🔄 Token found but no user data, fetching from backend...');
           try {
             // Backend'den current user bilgilerini al
             const response = await fetch('http://192.168.1.133:8000/api/auth/me', {
@@ -168,16 +162,13 @@ export default function HomeScreen({ navigation }: Props) {
               setIsLoggedIn(true);
               setUser(currentUser);
               await refreshSubscription();
-              console.log('✅ User data restored from backend');
             } else {
               // Token geçersiz, temizle
-              console.log('❌ Invalid token, clearing auth');
               await TokenManager.removeToken();
               setIsLoggedIn(false);
               setUser(null);
             }
           } catch (error) {
-            console.error('Backend user fetch failed:', error);
             // Backend bağlantısı yoksa mevcut durumu koru
             setIsLoggedIn(false);
             setUser(null);
@@ -185,12 +176,10 @@ export default function HomeScreen({ navigation }: Props) {
         }
       } else {
         // Token yok
-        console.log('❌ No auth token found');
         setIsLoggedIn(false);
         setUser(null);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
       setIsLoggedIn(false);
       setUser(null);
     }
@@ -263,7 +252,6 @@ export default function HomeScreen({ navigation }: Props) {
       setShowSkillInput(false);
       Alert.alert('Başarılı', 'Çıkış yapıldı');
     } catch (error) {
-      console.error('Logout failed:', error);
     }
   };
 

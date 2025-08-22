@@ -58,7 +58,6 @@ export default function ExploreScreen({ navigation }: Props) {
       setPosts(postsData);
       setStats(statsData);
     } catch (error) {
-      console.error('Load explore data error:', error);
       Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -74,7 +73,6 @@ export default function ExploreScreen({ navigation }: Props) {
           : post
       ));
     } catch (error) {
-      console.error('Toggle like error:', error);
       Alert.alert('Hata', 'Beğeni işlemi başarısız oldu');
     }
   };
@@ -88,7 +86,6 @@ export default function ExploreScreen({ navigation }: Props) {
           : reply
       ));
     } catch (error) {
-      console.error('Toggle reply like error:', error);
       Alert.alert('Hata', 'Yorum beğenisi başarısız oldu');
     }
   };
@@ -99,7 +96,6 @@ export default function ExploreScreen({ navigation }: Props) {
       setReplies(repliesData);
       setShowReplies(postId);
     } catch (error) {
-      console.error('Load replies error:', error);
       Alert.alert('Hata', 'Yorumlar yüklenirken bir hata oluştu');
     }
   };
@@ -127,7 +123,6 @@ export default function ExploreScreen({ navigation }: Props) {
       
       setNewReply('');
     } catch (error) {
-      console.error('Create reply error:', error);
       Alert.alert('Hata', 'Yorum gönderilemedi');
     } finally {
       setReplySubmitting(false);

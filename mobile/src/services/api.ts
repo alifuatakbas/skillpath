@@ -67,9 +67,7 @@ class ApiClient {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = await TokenManager.getToken();
 
-    console.log('Making API request to:', url);
-    console.log('Token being sent:', token ? `${token.substring(0, 20)}...` : 'No token');
-    console.log('Request options:', JSON.stringify(options, null, 2));
+
 
     const config: RequestInit = {
       headers: {
@@ -80,25 +78,17 @@ class ApiClient {
       ...options,
     };
 
-    console.log('Request config headers:', JSON.stringify(config.headers, null, 2));
 
     try {
-      console.log('Sending request...');
       const response = await fetch(url, config);
-      
-      console.log('API response status:', response.status);
-      console.log('API response headers:', JSON.stringify(response.headers, null, 2));
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.detail || `HTTP error! status: ${response.status}`;
-        console.error('API error:', errorMessage);
         
         // 401 Unauthorized hatası için özel handling
         if (response.status === 401) {
-          console.error('Authentication failed. Token:', token ? 'Present' : 'Missing');
           if (token) {
-            console.error('Token preview:', token.substring(0, 50) + '...');
           }
           // Token'ı temizle ve yeniden login gerektiğini belirt
           await TokenManager.removeToken();
@@ -109,22 +99,17 @@ class ApiClient {
       }
 
       const data = await response.json();
-      console.log('API response success:', endpoint);
-      console.log('Response data:', JSON.stringify(data, null, 2));
+      
       return data;
     } catch (error) {
-      console.error('API request failed for:', url, error);
-      console.error('Error type:', typeof error);
       
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('Error message:', errorMessage);
       
       if (error instanceof Error && error.stack) {
-        console.error('Error stack:', error.stack);
       }
       
       if (error instanceof TypeError && errorMessage.includes('Network request failed')) {
-        throw new Error('Sunucuya bağlanılamıyor. Lütfen:\n1. İnternet bağlantınızı kontrol edin\n2. Backend sunucusunun çalıştığından emin olun\n3. IP adresinin doğru olduğunu kontrol edin (192.168.1.133:8001)');
+        throw new Error('Sunucuya bağlanılamıyor. Lütfen internet bağlantınızı kontrol edin.');
       }
       if (errorMessage.includes('timeout')) {
         throw new Error('İstek zaman aşımına uğradı. Sunucu yanıt vermiyor.');

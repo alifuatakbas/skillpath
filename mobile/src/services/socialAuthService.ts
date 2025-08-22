@@ -9,18 +9,12 @@ export interface SocialAuthResult {
   error?: string;
 }
 
-// Google Sign-In kaldırıldı
-export const signInWithGoogle = async (): Promise<SocialAuthResult> => {
-  return {
-    success: false,
-    error: 'Google girişi kaldırıldı',
-  };
-};
+
 
 // Firebase ile Apple Sign-In
 export const signInWithApple = async (): Promise<SocialAuthResult> => {
   try {
-    console.log('🍎 Firebase Apple Sign-In başlatılıyor...');
+
     
     // Apple Sign-In availability kontrol et
     const isAvailable = await AppleAuthentication.isAvailableAsync();
@@ -36,11 +30,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
       ],
     });
     
-    console.log('✅ Apple user info:', {
-      user: credential.user,
-      email: credential.email,
-      fullName: credential.fullName,
-    });
+
     
     // Kullanıcının gerçek adını oluştur
     const fullName = credential.fullName;
@@ -48,7 +38,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
       `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim() : 
       'Apple User';
     
-    console.log('✅ Apple display name:', displayName);
+
     
     // Backend'e sosyal medya login isteği gönder
     const authResponse = await socialLogin({
@@ -58,14 +48,14 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
       user_name: displayName, // Kullanıcının gerçek adını gönder
     });
     
-    console.log('✅ Backend authentication başarılı');
+
 
     return {
       success: true,
       user: authResponse.user,
     };
   } catch (error: any) {
-    console.error('❌ Firebase Apple Sign-In Error:', error);
+
     
     let errorMessage = 'Apple girişi başarısız';
     
@@ -84,27 +74,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
   }
 };
 
-// Sign-Out (Firebase olmadan)
-export const signOutFromGoogle = async (): Promise<boolean> => {
-  try {
-    console.log('✅ Sign-Out başarılı');
-    return true;
-  } catch (error) {
-    console.error('❌ Sign-Out Error:', error);
-    return false;
-  }
-};
 
-// Auth State Listener (Firebase olmadan)
-export const onAuthStateChange = (callback: (user: any) => void) => {
-  // Basit implementation
-  return () => {};
-};
-
-// Mevcut kullanıcıyı al (Firebase olmadan)
-export const getCurrentFirebaseUser = (): any => {
-  return null;
-};
 
 // Auto-login kontrolü (uygulama başlangıcında)
 export const checkAutoLogin = async (): Promise<boolean> => {
@@ -119,7 +89,7 @@ export const checkAutoLogin = async (): Promise<boolean> => {
     
     return false;
   } catch (error) {
-    console.error('Auto-login check failed:', error);
+
     return false;
   }
 }; 

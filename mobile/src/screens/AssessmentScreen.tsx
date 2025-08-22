@@ -94,9 +94,6 @@ export default function AssessmentScreen({ navigation, route }: Props) {
       // Kullanıcı seviyesini hesapla
       const userLevel = calculateUserLevel(assessmentResponses);
       
-      console.log('Roadmap oluşturma başlıyor...');
-      console.log('Skill:', skillName);
-      console.log('User Level:', userLevel);
       
       // Roadmap oluştur - Yeni format
       const roadmapResponse = await generateRoadmap({
@@ -106,7 +103,6 @@ export default function AssessmentScreen({ navigation, route }: Props) {
         daily_hours: 2, // Default 2 saat/gün
       });
 
-      console.log('Roadmap response:', roadmapResponse);
 
       // Navigate to roadmap screen
       navigation.navigate('Roadmap', {
@@ -114,11 +110,6 @@ export default function AssessmentScreen({ navigation, route }: Props) {
       });
       
     } catch (error: any) {
-      console.error('Roadmap oluşturma hatası:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      console.error('Full error object:', JSON.stringify(error, null, 2));
       
       Alert.alert('Hata', error.message || 'Değerlendirme gönderilirken hata oluştu');
     } finally {

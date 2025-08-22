@@ -12,13 +12,11 @@ export interface TimezoneInfo {
  */
 export const detectTimezone = async (): Promise<TimezoneInfo> => {
   try {
-    console.log('🌍 Detecting timezone...');
     
     // Method 1: Use Expo Localization
     let timezone = Localization.timezone || 'UTC';
     let locale = Localization.locale || 'en-US';
     
-    console.log('📍 Expo Localization:', {
       timezone,
       locale,
       locales: Localization.locales,
@@ -29,9 +27,7 @@ export const detectTimezone = async (): Promise<TimezoneInfo> => {
     let fallbackTimezone = 'UTC';
     try {
       fallbackTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      console.log('🔄 Fallback timezone from Intl:', fallbackTimezone);
     } catch (intlError) {
-      console.warn('⚠️ Intl API failed:', intlError);
     }
     
     // Use fallback if main method failed
@@ -51,7 +47,6 @@ export const detectTimezone = async (): Promise<TimezoneInfo> => {
         country = Localization.region;
       }
     } catch (error) {
-      console.warn('⚠️ Country extraction failed:', error);
     }
     
     const timezoneInfo: TimezoneInfo = {
@@ -61,11 +56,9 @@ export const detectTimezone = async (): Promise<TimezoneInfo> => {
       country: country
     };
     
-    console.log('✅ Timezone detection successful:', timezoneInfo);
     return timezoneInfo;
     
   } catch (error) {
-    console.error('❌ Timezone detection failed:', error);
     
     // Final fallback
     const fallbackInfo: TimezoneInfo = {
@@ -75,7 +68,6 @@ export const detectTimezone = async (): Promise<TimezoneInfo> => {
       country: 'Unknown'
     };
     
-    console.log('🔄 Using fallback timezone info:', fallbackInfo);
     return fallbackInfo;
   }
 };
@@ -123,7 +115,6 @@ export const isInDoNotDisturbHours = (
       return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes <= endTotalMinutes;
     }
   } catch (error) {
-    console.error('Error checking DND hours:', error);
     return false;
   }
 };
@@ -145,7 +136,6 @@ export const formatTimeInTimezone = (date: Date, timezone?: string): string => {
     }
     return date.toLocaleString('tr-TR');
   } catch (error) {
-    console.error('Error formatting time in timezone:', error);
     return date.toLocaleString('tr-TR');
   }
 }; 

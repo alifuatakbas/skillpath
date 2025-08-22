@@ -92,7 +92,6 @@ export default function CommunityScreen({ navigation }: Props) {
       const roadmaps = await getUserRoadmaps();
       setUserRoadmaps(roadmaps);
     } catch (error) {
-      console.error('Load roadmaps error:', error);
     } finally {
       setRoadmapsLoading(false);
     }
@@ -110,13 +109,11 @@ export default function CommunityScreen({ navigation }: Props) {
       
       const currentOffset = isLoadMore ? offset : 0;
       
-      console.log('Loading community data with filter:', selectedFilter, 'skill:', selectedSkill, 'offset:', currentOffset);
       const [communityStats, communityPosts] = await Promise.all([
         getCommunityStats(),
         getCommunityPosts(20, currentOffset, undefined, selectedFilter, selectedSkill || undefined)
       ]);
       
-      console.log('Loaded posts:', communityPosts.length);
       
       setStats(communityStats);
       
@@ -134,7 +131,6 @@ export default function CommunityScreen({ navigation }: Props) {
       setHasMore(communityPosts.length === 20);
       
     } catch (error) {
-      console.error('Community data error:', error);
       Alert.alert('Hata', 'Topluluk verileri yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
@@ -162,7 +158,6 @@ export default function CommunityScreen({ navigation }: Props) {
       setHasMore(true);
       loadCommunityData(false);
     } catch (error) {
-      console.error('Like post error:', error);
       Alert.alert('Hata', 'Beğeni işlemi başarısız oldu');
     }
   };
@@ -176,7 +171,6 @@ export default function CommunityScreen({ navigation }: Props) {
       const postComments = await getPostComments(post.id);
       setComments(postComments);
     } catch (error) {
-      console.error('Get comments error:', error);
       Alert.alert('Hata', 'Yorumlar yüklenirken bir hata oluştu');
     }
   };
@@ -198,7 +192,6 @@ export default function CommunityScreen({ navigation }: Props) {
       setHasMore(true);
       loadCommunityData(false);
     } catch (error) {
-      console.error('Add comment error:', error);
       Alert.alert('Hata', 'Yorum eklenirken bir hata oluştu');
     } finally {
       setCommentLoading(false);
@@ -448,7 +441,6 @@ export default function CommunityScreen({ navigation }: Props) {
                           key={roadmap.id} 
                           style={styles.roadmapItem}
                           onPress={() => {
-                            console.log('Selected skill:', skillName);
                             setSelectedSkill(skillName);
                             setSelectedFilter('latest');
                             setOffset(0);

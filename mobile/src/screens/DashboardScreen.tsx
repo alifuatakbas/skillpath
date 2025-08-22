@@ -29,8 +29,6 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
         getUserRoadmaps()
       ]);
       
-      console.log('Dashboard stats:', dashboardStats);
-      console.log('User roadmaps:', userRoadmaps);
       
       setStats(dashboardStats);
       setRoadmaps(userRoadmaps);
@@ -38,7 +36,6 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
       // Gamification aktivitesini kaydet
       await recordActivity();
     } catch (error) {
-      console.error('Dashboard data load error:', error);
       Alert.alert('Hata', 'Dashboard verileri yüklenemedi');
     } finally {
       setLoading(false);
