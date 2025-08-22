@@ -11,22 +11,59 @@ export interface SocialAuthResult {
   error?: string;
 }
 
-// Firebase ile Google Sign-In (iOS için)
+// Google Sign-In (OAuth ile)
 export const signInWithGoogle = async (): Promise<SocialAuthResult> => {
   try {
     console.log('🔍 Google Sign-In başlatılıyor...');
     
-    // En basit test - hiçbir şey yapma
-    console.log('✅ Test modu - hiçbir şey yapmıyor...');
+    // Google OAuth URL'si oluştur
+    const clientId = '977573613440-2ljuaktboadenil19bpadjb5e7vq1imv.apps.googleusercontent.com';
+    const redirectUri = 'https://auth.expo.io/@alifuatakbas/skillpath';
     
-    return {
-      success: true,
-      user: {
-        id: 1,
-        name: 'Test User',
-        email: 'test@example.com'
-      },
-    };
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${clientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `response_type=code&` +
+      `scope=${encodeURIComponent('openid email profile')}&` +
+      `access_type=offline&` +
+      `prompt=consent&` +
+      `state=random_state_string`;
+    
+    console.log('🔗 Auth URL:', authUrl);
+    
+    // WebBrowser ile Google'a yönlendir
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+    
+    console.log('✅ Google Auth result:', result);
+    
+    if (result.type === 'success' && result.url) {
+      // URL'den authorization code'u al
+      const url = new URL(result.url);
+      const code = url.searchParams.get('code');
+      
+      if (code) {
+        console.log('✅ Authorization code alındı:', code);
+        
+        // Backend'e authorization code gönder
+        const authResponse = await socialLogin({
+          provider: 'google',
+          access_token: code,
+        });
+        
+        console.log('✅ Backend authentication başarılı');
+        
+        return {
+          success: true,
+          user: authResponse.user,
+        };
+      }
+    } else if (result.type === 'cancel') {
+      throw new Error('Google girişi iptal edildi');
+    } else {
+      throw new Error('Google girişi başarısız');
+    }
+    
+    throw new Error('Google authentication failed');
   } catch (error: any) {
     console.error('❌ Google Sign-In Error:', error);
     
