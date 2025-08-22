@@ -390,6 +390,7 @@ class SocialLoginRequest(BaseModel):
     provider: str  # "google" veya "apple"
     access_token: str
     id_token: Optional[str] = None
+    user_name: Optional[str] = None  # Kullanıcının gerçek adı
 
 class UserResponse(BaseModel):
     id: int
@@ -868,14 +869,14 @@ async def social_login(request: SocialLoginRequest, db: Session = Depends(get_db
                 # Apple ID token'ı doğrula (gerçek implementasyonda Apple'ın public key'leri kullanılır)
                 user_info = {
                     "email": f"apple_user_{hash(request.access_token)}@skillpath.com",
-                    "name": "Apple User",
+                    "name": request.user_name or "Apple User",  # Kullanıcının gerçek adını kullan
                     "picture": ""
                 }
             except Exception as e:
                 print(f"Apple token verification failed: {e}")
                 user_info = {
                     "email": f"apple_user_{hash(request.access_token)}@skillpath.com",
-                    "name": "Apple User",
+                    "name": request.user_name or "Apple User",  # Kullanıcının gerçek adını kullan
                     "picture": ""
                 }
         
