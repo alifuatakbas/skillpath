@@ -14,24 +14,21 @@ export interface SocialAuthResult {
 // Firebase ile Google Sign-In (iOS için)
 export const signInWithGoogle = async (): Promise<SocialAuthResult> => {
   try {
-    console.log('🔍 Firebase Google Sign-In başlatılıyor (iOS)...');
+    console.log('🔍 Google Sign-In başlatılıyor...');
     
-    // Test için basit bir yaklaşım - sadece backend'e test isteği gönder
-    console.log('✅ Test modu - backend\'e test isteği gönderiliyor...');
-    
-    const authResponse = await socialLogin({
-      provider: 'google',
-      access_token: 'test_google_token_' + Date.now(),
-    });
-    
-    console.log('✅ Backend authentication başarılı');
+    // En basit test - hiçbir şey yapma
+    console.log('✅ Test modu - hiçbir şey yapmıyor...');
     
     return {
       success: true,
-      user: authResponse.user,
+      user: {
+        id: 1,
+        name: 'Test User',
+        email: 'test@example.com'
+      },
     };
   } catch (error: any) {
-    console.error('❌ Firebase Google Sign-In Error:', error);
+    console.error('❌ Google Sign-In Error:', error);
     
     return {
       success: false,
