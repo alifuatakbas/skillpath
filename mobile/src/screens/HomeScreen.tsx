@@ -75,41 +75,10 @@ export default function HomeScreen({ navigation }: Props) {
   const [skillSuggestions, setSkillSuggestions] = useState<SkillSuggestionResponse | null>(null);
   const [skillLoading, setSkillLoading] = useState(false);
 
-  // Google Logo Component - PNG Image
-  const GoogleLogo = () => (
-    <Image 
-      source={require('../../assets/svgviewer-png-output.png')} 
-      style={styles.googleLogo}
-      resizeMode="contain"
-    />
-  );
+
 
   // Sosyal medya giriş fonksiyonları
-  const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      // Google Sign-In servisini kullan
-      const { signInWithGoogle } = await import('../services/socialAuthService');
-      const result = await signInWithGoogle();
-      
-      if (result.success) {
-        setUser(result.user);
-        setIsLoggedIn(true);
-        setShowAuthModal(false);
-        refreshSubscription();
-        console.log('✅ Google login successful');
-      } else {
-        setError(result.error || 'Google girişi başarısız');
-      }
-    } catch (error) {
-      console.error('Google login error:', error);
-      setError('Google girişi başarısız');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const handleAppleSignIn = async () => {
     try {
@@ -705,16 +674,7 @@ export default function HomeScreen({ navigation }: Props) {
                   <View style={styles.dividerLine} />
                 </View>
 
-                <TouchableOpacity
-                  onPress={handleGoogleSignIn}
-                  disabled={loading}
-                  style={styles.socialButton}
-                >
-                  <View style={styles.socialButtonContent}>
-                    <GoogleLogo />
-                    <Text style={styles.socialButtonText}>Google ile Giriş Yap</Text>
-                  </View>
-                </TouchableOpacity>
+
 
                 <TouchableOpacity
                   onPress={handleAppleSignIn}
@@ -767,16 +727,7 @@ export default function HomeScreen({ navigation }: Props) {
                   <View style={styles.dividerLine} />
                 </View>
 
-                <TouchableOpacity
-                  onPress={handleGoogleSignIn}
-                  disabled={loading}
-                  style={styles.socialButton}
-                >
-                  <View style={styles.socialButtonContent}>
-                    <GoogleLogo />
-                    <Text style={styles.socialButtonText}>Google ile Kayıt Ol</Text>
-                  </View>
-                </TouchableOpacity>
+
 
                 <TouchableOpacity
                   onPress={handleAppleSignIn}
@@ -1432,33 +1383,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 8,
   },
-  googleLogoContainer: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#4285F4', // Google mavi
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    elevation: 2,
-  },
-  googleG: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  googleLogo: {
-    width: 20,
-    height: 20,
-    marginRight: 8,
-  },
+
   // Profile card styles
   profileCardContent: {
     flex: 1,
