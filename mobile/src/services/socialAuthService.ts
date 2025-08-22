@@ -1,12 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { socialLogin } from './api';
-import { auth } from '../config/firebase';
-import { 
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User
-} from 'firebase/auth';
 
 // WebBrowser ayarları
 WebBrowser.maybeCompleteAuthSession();
@@ -113,53 +107,32 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
   }
 };
 
-// Firebase ile Sign-Out
+// Sign-Out (Firebase olmadan)
 export const signOutFromGoogle = async (): Promise<boolean> => {
   try {
-    // Firebase'den çıkış yap
-    await firebaseSignOut(auth);
-    console.log('✅ Firebase Sign-Out başarılı');
+    console.log('✅ Sign-Out başarılı');
     return true;
   } catch (error) {
-    console.error('❌ Firebase Sign-Out Error:', error);
+    console.error('❌ Sign-Out Error:', error);
     return false;
   }
 };
 
-// Firebase Auth State Listener
-export const onAuthStateChange = (callback: (user: User | null) => void) => {
-  return onAuthStateChanged(auth, callback);
+// Auth State Listener (Firebase olmadan)
+export const onAuthStateChange = (callback: (user: any) => void) => {
+  // Basit implementation
+  return () => {};
 };
 
-// Mevcut Firebase kullanıcısını al
-export const getCurrentFirebaseUser = (): User | null => {
-  return auth.currentUser;
+// Mevcut kullanıcıyı al (Firebase olmadan)
+export const getCurrentFirebaseUser = (): any => {
+  return null;
 };
 
 // Auto-login kontrolü (uygulama başlangıcında)
 export const checkAutoLogin = async (): Promise<boolean> => {
   try {
-    // Firebase auth state kontrol et
-    const currentUser = auth.currentUser;
-    
-    if (currentUser) {
-      console.log('✅ Firebase kullanıcısı mevcut:', currentUser.uid);
-      
-      // Token'ı yenile
-      await currentUser.getIdToken(true);
-      
-      // Backend'e token gönder ve kullanıcı bilgilerini al
-      const idToken = await currentUser.getIdToken();
-      const authResponse = await socialLogin({
-        provider: 'firebase',
-        access_token: idToken,
-        firebase_uid: currentUser.uid,
-      });
-      
-      return true;
-    }
-    
-    // Eski token kontrolü (fallback)
+    // Token kontrolü
     const { TokenManager } = await import('./api');
     const token = await TokenManager.getToken();
     
