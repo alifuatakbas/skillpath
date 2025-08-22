@@ -1,7 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { socialLogin } from './api';
 
-// Apple Authentication ayarları
+// Apple Authentication settings
 
 export interface SocialAuthResult {
   success: boolean;
@@ -19,10 +19,10 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
     // Apple Sign-In availability kontrol et
     const isAvailable = await AppleAuthentication.isAvailableAsync();
     if (!isAvailable) {
-      throw new Error('Apple Sign-In bu cihazda mevcut değil');
+      throw new Error('Apple Sign-In is not available on this device');
     }
     
-    // Apple Sign-In dialog'unu aç
+    // Open Apple Sign-In dialog
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [
         AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -32,7 +32,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
     
 
     
-    // Kullanıcının gerçek adını oluştur
+    // Create user's real name
     const fullName = credential.fullName;
     const displayName = fullName ? 
       `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim() : 
@@ -40,12 +40,12 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
     
 
     
-    // Backend'e sosyal medya login isteği gönder
+    // Send social media login request to backend
     const authResponse = await socialLogin({
       provider: 'apple',
       access_token: credential.identityToken || credential.authorizationCode || 'apple_auth_' + Date.now(),
       id_token: credential.identityToken || credential.authorizationCode || '',
-      user_name: displayName, // Kullanıcının gerçek adını gönder
+      user_name: displayName, // Send user's real name
     });
     
 
@@ -76,10 +76,10 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
 
 
 
-// Auto-login kontrolü (uygulama başlangıcında)
+// Auto-login check (on app startup)
 export const checkAutoLogin = async (): Promise<boolean> => {
   try {
-    // Token kontrolü
+    // Token check
     const { TokenManager } = await import('./api');
     const token = await TokenManager.getToken();
     

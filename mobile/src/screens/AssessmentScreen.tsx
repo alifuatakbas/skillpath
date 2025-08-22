@@ -51,7 +51,7 @@ export default function AssessmentScreen({ navigation, route }: Props) {
       
       setQuestions(response.questions);
     } catch (error: any) {
-      setError(error.message || 'Değerlendirme soruları yüklenemedi');
+              setError(error.message || 'Could not load assessment questions');
     } finally {
       setLoading(false);
     }
@@ -111,7 +111,7 @@ export default function AssessmentScreen({ navigation, route }: Props) {
       
     } catch (error: any) {
       
-      Alert.alert('Hata', error.message || 'Değerlendirme gönderilirken hata oluştu');
+              Alert.alert('Error', error.message || 'An error occurred while submitting assessment');
     } finally {
       setSubmitting(false);
     }
@@ -143,7 +143,7 @@ export default function AssessmentScreen({ navigation, route }: Props) {
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.loadingText}>Soru yükleniyor...</Text>
+          <Text style={styles.loadingText}>Loading question...</Text>
         </View>
       </SafeAreaView>
     );
@@ -155,7 +155,7 @@ export default function AssessmentScreen({ navigation, route }: Props) {
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.loadingText}>Değerlendirme soruları hazırlanıyor...</Text>
+          <Text style={styles.loadingText}>Preparing assessment questions...</Text>
         </View>
       </SafeAreaView>
     );
@@ -169,10 +169,10 @@ export default function AssessmentScreen({ navigation, route }: Props) {
           <Text style={styles.errorTitle}>Hata</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity onPress={loadAssessmentQuestions} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+            <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -184,10 +184,10 @@ export default function AssessmentScreen({ navigation, route }: Props) {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Soru Bulunamadı</Text>
-          <Text style={styles.errorText}>Bu beceri için değerlendirme soruları bulunamadı.</Text>
+          <Text style={styles.errorTitle}>Question Not Found</Text>
+          <Text style={styles.errorText}>Assessment questions could not be found for this skill.</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -201,9 +201,9 @@ export default function AssessmentScreen({ navigation, route }: Props) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackButton}>
-          <Text style={styles.headerBackText}>← Geri</Text>
+          <Text style={styles.headerBackText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{skillName} Değerlendirmesi</Text>
+        <Text style={styles.headerTitle}>{skillName} Assessment</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -223,7 +223,7 @@ export default function AssessmentScreen({ navigation, route }: Props) {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Question */}
         <View style={styles.questionContainer}>
-          <Text style={styles.questionNumber}>Soru {currentQuestionIndex + 1}</Text>
+          <Text style={styles.questionNumber}>Question {currentQuestionIndex + 1}</Text>
           <Text style={styles.questionText}>{currentQuestion.question}</Text>
         </View>
 
@@ -273,7 +273,7 @@ export default function AssessmentScreen({ navigation, route }: Props) {
             styles.navButtonText,
             currentQuestionIndex === 0 && styles.navButtonTextDisabled
           ]}>
-            Önceki
+            Previous
           </Text>
         </TouchableOpacity>
 
@@ -291,7 +291,7 @@ export default function AssessmentScreen({ navigation, route }: Props) {
               styles.submitButtonText,
               (!isCurrentQuestionAnswered() || submitting) && styles.navButtonTextDisabled
             ]}>
-              {submitting ? 'Gönderiliyor...' : 'Tamamla'}
+              {submitting ? 'Submitting...' : 'Complete'}
             </Text>
           </TouchableOpacity>
         ) : (

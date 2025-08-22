@@ -222,12 +222,12 @@ export default function CalendarScreen({ navigation }: Props) {
 
   const deleteGoal = (goalId: string) => {
     Alert.alert(
-      'Hedefi Sil',
-      'Bu hedefi silmek istediğinizden emin misiniz?',
+      'Delete Goal',
+      'Are you sure you want to delete this goal?',
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         { 
-          text: 'Sil', 
+          text: 'Delete', 
           style: 'destructive',
           onPress: () => {
             setDailyGoals(prev => prev.filter(goal => goal.id !== goalId));
@@ -249,14 +249,14 @@ export default function CalendarScreen({ navigation }: Props) {
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Takvim & Planlama</Text>
+        <Text style={styles.headerTitle}>Calendar & Planning</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.scrollView}>
         {/* Weekly Calendar */}
         <View style={styles.calendarSection}>
-          <Text style={styles.sectionTitle}>📅 Bu Hafta</Text>
+          <Text style={styles.sectionTitle}>📅 This Week</Text>
           <View style={styles.weekGrid}>
             {getWeekDays().map((date, index) => (
               <TouchableOpacity
@@ -285,24 +285,24 @@ export default function CalendarScreen({ navigation }: Props) {
 
         {/* Weekly Stats */}
         <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>📊 Haftalık İstatistikler</Text>
+          <Text style={styles.sectionTitle}>📊 Weekly Statistics</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Ionicons name="calendar" size={24} color="#667eea" />
               <Text style={styles.statValue}>{weeklyStats.totalStudyDays}</Text>
-              <Text style={styles.statLabel}>Çalışma Günü</Text>
+              <Text style={styles.statLabel}>Study Days</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="time" size={24} color="#4facfe" />
               <Text style={styles.statValue}>{weeklyStats.totalStudyHours}</Text>
-              <Text style={styles.statLabel}>Toplam Saat</Text>
+              <Text style={styles.statLabel}>Total Hours</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
               <Text style={styles.statValue}>
                 {weeklyStats.completedTasks}/{weeklyStats.totalTasks}
               </Text>
-              <Text style={styles.statLabel}>Tamamlanan</Text>
+              <Text style={styles.statLabel}>Completed</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="flame" size={24} color="#ff6b6b" />
@@ -316,11 +316,11 @@ export default function CalendarScreen({ navigation }: Props) {
         <View style={styles.goalsSection}>
           <View style={styles.goalsHeader}>
             <Text style={styles.sectionTitle}>
-              🎯 {selectedDate.toLocaleDateString('tr-TR', { 
+              🎯 {selectedDate.toLocaleDateString('en-US', { 
                 day: 'numeric', 
                 month: 'long', 
                 year: 'numeric' 
-              })} Hedefleri
+              })} Goals
             </Text>
             <TouchableOpacity
               style={styles.addGoalButton}
@@ -387,25 +387,25 @@ export default function CalendarScreen({ navigation }: Props) {
 
         {/* Progress Summary */}
         <View style={styles.progressSection}>
-          <Text style={styles.sectionTitle}>📈 İlerleme Özeti</Text>
+          <Text style={styles.sectionTitle}>📈 Progress Summary</Text>
           <View style={styles.progressCard}>
             <LinearGradient
               colors={['#667eea', '#764ba2']}
               style={styles.progressGradient}
             >
-              <Text style={styles.progressTitle}>Bu Hafta</Text>
+              <Text style={styles.progressTitle}>This Week</Text>
               <View style={styles.progressStats}>
                 <View style={styles.progressStat}>
                   <Text style={styles.progressValue}>
                     {Math.floor((weeklyStats.completedTasks / weeklyStats.totalTasks) * 100)}%
                   </Text>
-                  <Text style={styles.progressLabel}>Başarı Oranı</Text>
+                  <Text style={styles.progressLabel}>Success Rate</Text>
                 </View>
                 <View style={styles.progressStat}>
                   <Text style={styles.progressValue}>
                     {weeklyStats.totalStudyHours}
                   </Text>
-                  <Text style={styles.progressLabel}>Çalışma Saati</Text>
+                  <Text style={styles.progressLabel}>Study Hours</Text>
                 </View>
               </View>
             </LinearGradient>
@@ -433,18 +433,18 @@ export default function CalendarScreen({ navigation }: Props) {
             </View>
             
             <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Hedef Başlığı</Text>
+              <Text style={styles.inputLabel}>Goal Title</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder="Örn: React Native öğren"
+                                  placeholder="Ex: Learn React Native"
                 value={newGoalTitle}
                 onChangeText={setNewGoalTitle}
               />
               
-              <Text style={styles.inputLabel}>Hedef Miktarı</Text>
+                              <Text style={styles.inputLabel}>Goal Amount</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder="Örn: 60 (dakika)"
+                                  placeholder="Ex: 60 (minutes)"
                 value={newGoalTarget}
                 onChangeText={setNewGoalTarget}
                 keyboardType="numeric"
@@ -456,7 +456,7 @@ export default function CalendarScreen({ navigation }: Props) {
                 style={styles.cancelButton}
                 onPress={() => setShowAddGoal(false)}
               >
-                <Text style={styles.cancelButtonText}>İptal</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveButton}

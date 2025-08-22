@@ -86,13 +86,13 @@ class ApiClient {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.detail || `HTTP error! status: ${response.status}`;
         
-        // 401 Unauthorized hatası için özel handling
+        // Special handling for 401 Unauthorized error
         if (response.status === 401) {
           if (token) {
           }
-          // Token'ı temizle ve yeniden login gerektiğini belirt
+          // Clear token and indicate re-login is required
           await TokenManager.removeToken();
-          throw new Error('Oturum süresi dolmuş. Lütfen tekrar giriş yapın.');
+          throw new Error('Session expired. Please log in again.');
         }
         
         throw new Error(errorMessage);
@@ -109,10 +109,10 @@ class ApiClient {
       }
       
       if (error instanceof TypeError && errorMessage.includes('Network request failed')) {
-        throw new Error('Sunucuya bağlanılamıyor. Lütfen internet bağlantınızı kontrol edin.');
+        throw new Error('Cannot connect to server. Please check your internet connection.');
       }
       if (errorMessage.includes('timeout')) {
-        throw new Error('İstek zaman aşımına uğradı. Sunucu yanıt vermiyor.');
+        throw new Error('Request timed out. Server is not responding.');
       }
       throw error;
     }

@@ -33,7 +33,7 @@ export default function CreatePostScreen({ navigation }: Props) {
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Hata', 'Başlık ve içerik alanları zorunludur!');
+              Alert.alert('Error', 'Title and content fields are required!');
       return;
     }
 
@@ -47,20 +47,20 @@ export default function CreatePostScreen({ navigation }: Props) {
       });
       
       Alert.alert(
-        'Başarılı!', 
-        'Gönderiniz başarıyla oluşturuldu.',
-        [{ text: 'Tamam', onPress: () => navigation.goBack() }]
+                'Success!',
+        'Your post was created successfully.',
+                  [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error) {
-      Alert.alert('Hata', 'Gönderi oluşturulurken bir hata oluştu.');
+              Alert.alert('Error', 'An error occurred while creating the post.');
     } finally {
       setLoading(false);
     }
   };
 
   const postTypes = [
-    { key: 'question', label: 'Soru', icon: 'help-circle' },
-    { key: 'discussion', label: 'Tartışma', icon: 'chatbubbles' },
+    { key: 'question', label: 'Question', icon: 'help-circle' },
+    { key: 'discussion', label: 'Discussion', icon: 'chatbubbles' },
   ];
 
   return (
@@ -75,7 +75,7 @@ export default function CreatePostScreen({ navigation }: Props) {
         >
           <Ionicons name="arrow-back" size={24} color="#1f2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Yeni Gönderi</Text>
+        <Text style={styles.headerTitle}>New Post</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -87,7 +87,7 @@ export default function CreatePostScreen({ navigation }: Props) {
           
           {/* Post Type Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Gönderi Türü</Text>
+            <Text style={styles.sectionTitle}>Post Type</Text>
             <View style={styles.typeContainer}>
               {postTypes.map((type) => (
                 <TouchableOpacity
@@ -116,12 +116,12 @@ export default function CreatePostScreen({ navigation }: Props) {
 
           {/* Title Input */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Başlık *</Text>
+                          <Text style={styles.sectionTitle}>Title *</Text>
             <TextInput
               style={styles.titleInput}
               value={title}
               onChangeText={setTitle}
-              placeholder="Gönderinizin başlığını yazın..."
+                              placeholder="Write your post title..."
               placeholderTextColor="#9ca3af"
               maxLength={200}
             />
@@ -135,7 +135,7 @@ export default function CreatePostScreen({ navigation }: Props) {
               style={styles.input}
               value={skillName}
               onChangeText={setSkillName}
-              placeholder="Örn: React Native, Python, Java..."
+                              placeholder="Ex: React Native, Python, Java..."
               placeholderTextColor="#9ca3af"
               maxLength={100}
             />
@@ -143,12 +143,12 @@ export default function CreatePostScreen({ navigation }: Props) {
 
           {/* Content Input */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>İçerik *</Text>
+                          <Text style={styles.sectionTitle}>Content *</Text>
             <TextInput
               style={styles.contentInput}
               value={content}
               onChangeText={setContent}
-              placeholder="Gönderinizin detaylarını yazın..."
+                              placeholder="Write your post details..."
               placeholderTextColor="#9ca3af"
               multiline
               numberOfLines={8}
@@ -172,11 +172,11 @@ export default function CreatePostScreen({ navigation }: Props) {
               style={styles.submitGradient}
             >
               {loading ? (
-                <Text style={styles.submitText}>Gönderiliyor...</Text>
+                <Text style={styles.submitText}>Posting...</Text>
               ) : (
                 <>
                   <Ionicons name="send" size={20} color="#ffffff" />
-                  <Text style={styles.submitText}>Gönder</Text>
+                  <Text style={styles.submitText}>Post</Text>
                 </>
               )}
             </LinearGradient>

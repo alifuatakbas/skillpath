@@ -45,7 +45,7 @@ export default function RoadmapScreen({ navigation, route }: Props) {
       const response = await getRoadmap(roadmapId);
       setRoadmap(response.roadmap);
     } catch (error: any) {
-      setError(error.message || 'Roadmap yüklenemedi');
+              setError(error.message || 'Could not load roadmap');
     } finally {
       setLoading(false);
     }
@@ -90,7 +90,7 @@ export default function RoadmapScreen({ navigation, route }: Props) {
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.loadingText}>Roadmap yükleniyor...</Text>
+          <Text style={styles.loadingText}>Loading roadmap...</Text>
         </View>
       </SafeAreaView>
     );
@@ -104,10 +104,10 @@ export default function RoadmapScreen({ navigation, route }: Props) {
           <Text style={styles.errorTitle}>Hata</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity onPress={loadRoadmap} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+            <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -119,10 +119,10 @@ export default function RoadmapScreen({ navigation, route }: Props) {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Roadmap Bulunamadı</Text>
-          <Text style={styles.errorText}>İstenen roadmap bulunamadı.</Text>
+          <Text style={styles.errorTitle}>Roadmap Not Found</Text>
+          <Text style={styles.errorText}>The requested roadmap could not be found.</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Geri Dön</Text>
+            <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -138,9 +138,9 @@ export default function RoadmapScreen({ navigation, route }: Props) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackButton}>
-          <Text style={styles.headerBackText}>← Geri</Text>
+          <Text style={styles.headerBackText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Öğrenme Yol Haritası</Text>
+        <Text style={styles.headerTitle}>Learning Roadmap</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -155,15 +155,15 @@ export default function RoadmapScreen({ navigation, route }: Props) {
           
           <View style={styles.infoRow}>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Süre</Text>
-              <Text style={styles.infoValue}>{roadmap.total_weeks} hafta</Text>
+              <Text style={styles.infoLabel}>Duration</Text>
+              <Text style={styles.infoValue}>{roadmap.total_weeks} weeks</Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Adım</Text>
-              <Text style={styles.infoValue}>{roadmap.steps.length} adım</Text>
+              <Text style={styles.infoLabel}>Steps</Text>
+              <Text style={styles.infoValue}>{roadmap.steps.length} steps</Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Zorluk</Text>
+              <Text style={styles.infoLabel}>Difficulty</Text>
               <View style={[styles.difficultyBadge, { backgroundColor: `${getDifficultyColor(roadmap.difficulty_level)}20` }]}>
                 <Text style={[styles.difficultyText, { color: getDifficultyColor(roadmap.difficulty_level) }]}>
                   {roadmap.difficulty_level}
@@ -176,9 +176,9 @@ export default function RoadmapScreen({ navigation, route }: Props) {
         {/* Progress */}
         <View style={styles.progressSection}>
           <View style={styles.progressHeader}>
-            <Text style={styles.progressTitle}>İlerleme</Text>
+            <Text style={styles.progressTitle}>Progress</Text>
             <Text style={styles.progressText}>
-              {completedSteps.size} / {roadmap.steps.length} tamamlandı
+              {completedSteps.size} / {roadmap.steps.length} completed
             </Text>
           </View>
           
@@ -190,13 +190,13 @@ export default function RoadmapScreen({ navigation, route }: Props) {
           </View>
           
           <Text style={styles.progressPercentage}>
-            %{Math.round(getProgressPercentage())} tamamlandı
+            %{Math.round(getProgressPercentage())} completed
           </Text>
         </View>
 
         {/* Steps */}
         <View style={styles.stepsSection}>
-          <Text style={styles.sectionTitle}>Öğrenme Adımları</Text>
+          <Text style={styles.sectionTitle}>Learning Steps</Text>
           
           {roadmap.steps.map((step, index) => (
             <View key={step.step_order} style={styles.stepCard}>

@@ -27,11 +27,11 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
       const isAuth = await TokenManager.isAuthenticated();
       if (!isAuth) {
         Alert.alert(
-          'Giriş Gerekli',
-          'Bildirim geçmişini görüntülemek için giriş yapmanız gerekiyor.',
-          [
-            {
-              text: 'Giriş Yap',
+                  'Login Required',
+        'You need to login to view notification history.',
+        [
+          {
+            text: 'Login',
               onPress: () => navigation?.navigate('Home')
             }
           ]
@@ -55,11 +55,11 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
       // Auth hatası kontrolü
       if (error instanceof Error && error.message.includes('Oturum süresi dolmuş')) {
         Alert.alert(
-          'Oturum Süresi Doldu',
-          'Lütfen tekrar giriş yapın.',
-          [
-            {
-              text: 'Giriş Yap',
+                  'Session Expired',
+        'Please login again.',
+        [
+          {
+            text: 'Login',
               onPress: () => navigation?.navigate('Home')
             }
           ]
@@ -67,7 +67,7 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
         return;
       }
       
-      Alert.alert('Hata', 'Bildirim geçmişi yüklenirken hata oluştu: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
+              Alert.alert('Error', 'An error occurred while loading notification history: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -86,13 +86,13 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 1) {
-      return `Bugün ${date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
+      return `Today ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
     } else if (diffDays === 2) {
-      return `Dün ${date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
+      return `Yesterday ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
     } else if (diffDays <= 7) {
-      return `${diffDays - 1} gün önce`;
+      return `${diffDays - 1} days ago`;
     } else {
-      return date.toLocaleDateString('tr-TR', {
+              return date.toLocaleDateString('en-US', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -120,15 +120,15 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
   const getNotificationTypeText = (type: string) => {
     switch (type) {
       case 'daily_reminder':
-        return 'Günlük Hatırlatma';
+        return 'Daily Reminder';
       case 'step_completion':
-        return 'Adım Tamamlandı';
+        return 'Step Completed';
       case 'streak_warning':
-        return 'Seri Uyarısı';
+        return 'Streak Warning';
       case 'weekly_progress':
-        return 'Haftalık İlerleme';
+        return 'Weekly Progress';
       default:
-        return 'Bildirim';
+        return 'Notification';
     }
   };
 
@@ -171,9 +171,9 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyIcon}>🔔</Text>
-      <Text style={styles.emptyTitle}>Henüz bildirim yok</Text>
+      <Text style={styles.emptyTitle}>No notifications yet</Text>
       <Text style={styles.emptyMessage}>
-        Bildirim ayarlarınızı yapılandırdığınızda, bildirimlerin geçmişi burada görünecek.
+        When you configure your notification settings, notification history will appear here.
       </Text>
     </View>
   );
@@ -183,7 +183,7 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Bildirim geçmişi yükleniyor...</Text>
+          <Text style={styles.loadingText}>Loading notification history...</Text>
         </View>
       </SafeAreaView>
     );
@@ -192,11 +192,11 @@ const NotificationHistoryScreen: React.FC<{ navigation?: any }> = ({ navigation 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Bildirim Geçmişi</Text>
+        <Text style={styles.title}>Notification History</Text>
         <Text style={styles.subtitle}>
           {notifications.length > 0 
-            ? `${notifications.length} bildirim gösteriliyor`
-            : 'Henüz bildirim bulunmuyor'
+            ? `Showing ${notifications.length} notifications`
+            : 'No notifications found'
           }
         </Text>
       </View>

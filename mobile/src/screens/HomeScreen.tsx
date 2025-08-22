@@ -95,10 +95,10 @@ export default function HomeScreen({ navigation }: Props) {
         setShowAuthModal(false);
         refreshSubscription();
       } else {
-        setError(result.error || 'Apple girişi başarısız');
+        setError(result.error || 'Apple sign-in failed');
       }
     } catch (error) {
-      setError('Apple girişi başarısız');
+              setError('Apple sign-in failed');
     } finally {
       setLoading(false);
     }
@@ -187,7 +187,7 @@ export default function HomeScreen({ navigation }: Props) {
 
   const handleLogin = async () => {
     if (!loginForm.email || !loginForm.password) {
-      setError('Lütfen tüm alanları doldurun');
+      setError('Please fill in all fields');
       return;
     }
 
@@ -204,9 +204,9 @@ export default function HomeScreen({ navigation }: Props) {
       // Premium context'i refresh et
       await refreshSubscription();
       
-      Alert.alert('Başarılı', 'Giriş başarılı!');
+      Alert.alert('Success', 'Login successful!');
     } catch (error: any) {
-      setError(error.message || 'Giriş başarısız');
+      setError(error.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -214,12 +214,12 @@ export default function HomeScreen({ navigation }: Props) {
 
   const handleRegister = async () => {
     if (!registerForm.name || !registerForm.email || !registerForm.password) {
-      setError('Lütfen tüm alanları doldurun');
+      setError('Please fill in all fields');
       return;
     }
 
     if (registerForm.password.length < 6) {
-      setError('Şifre en az 6 karakter olmalıdır');
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -236,9 +236,9 @@ export default function HomeScreen({ navigation }: Props) {
       // Premium context'i refresh et
       await refreshSubscription();
       
-      Alert.alert('Başarılı', 'Kayıt başarılı!');
+      Alert.alert('Success', 'Registration successful!');
     } catch (error: any) {
-      setError(error.message || 'Kayıt başarısız');
+      setError(error.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -250,7 +250,7 @@ export default function HomeScreen({ navigation }: Props) {
       setIsLoggedIn(false);
       setUser(null);
       setShowSkillInput(false);
-      Alert.alert('Başarılı', 'Çıkış yapıldı');
+      Alert.alert('Success', 'Logged out successfully');
     } catch (error) {
     }
   };
@@ -268,7 +268,7 @@ export default function HomeScreen({ navigation }: Props) {
       });
       setSkillSuggestions(suggestion);
     } catch (error: any) {
-      setError(error.message || 'Skill önerisi alınamadı');
+      setError(error.message || 'Could not get skill suggestion');
     } finally {
       setSkillLoading(false);
     }
@@ -333,11 +333,11 @@ export default function HomeScreen({ navigation }: Props) {
               <View style={styles.userSection}>
                 <View style={styles.welcomeContainer}>
                   <Text style={styles.welcomeText}>
-                    {isPremium ? 'Merhaba,' : 'Merhaba,'}
+                    {isPremium ? 'Hello,' : 'Hello,'}
                   </Text>
                   <Text style={styles.userName}>{user?.name}</Text>
                   {!isPremium && (
-                    <Text style={styles.freeUserText}>Ücretsiz Kullanıcı</Text>
+                    <Text style={styles.freeUserText}>Free User</Text>
                   )}
                 </View>
                 
@@ -362,7 +362,7 @@ export default function HomeScreen({ navigation }: Props) {
                         style={styles.upgradeGradient}
                       >
                         <Ionicons name="diamond-outline" size={14} color="#fff" />
-                        <Text style={styles.upgradeTextNew}>Premium Edin</Text>
+                        <Text style={styles.upgradeTextNew}>Get Premium</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
@@ -382,7 +382,7 @@ export default function HomeScreen({ navigation }: Props) {
                   style={styles.loginGradient}
                 >
                   <Ionicons name="person" size={14} color="#fff" />
-                  <Text style={styles.loginButtonTextNew}>Giriş</Text>
+                  <Text style={styles.loginButtonTextNew}>Login</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
@@ -399,14 +399,14 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.heroGradientText}>Skills</Text>
           </Text>
           <Text style={styles.heroSubtitle}>
-            AI destekli kişiselleştirilmiş öğrenme yol haritaları ile hedeflerinize ulaşın
+            Achieve your goals with AI-powered personalized learning roadmaps
           </Text>
           </LinearGradient>
 
         {/* Profile Card */}
         {isLoggedIn && profile && (
           <View style={styles.profileSection}>
-            <Text style={styles.sectionTitle}>👤 Profilim</Text>
+            <Text style={styles.sectionTitle}>👤 My Profile</Text>
             <View style={styles.profileCard}>
               <LinearGradient
                 colors={['#667eea', '#764ba2']}
@@ -423,7 +423,7 @@ export default function HomeScreen({ navigation }: Props) {
                   <View style={styles.profileInfo}>
                     <Text style={styles.profileName}>{profile.name}</Text>
                     <Text style={styles.profileLevel}>
-                      Seviye {profile.gamification.current_level} • {profile.gamification.level_name}
+                      Level {profile.gamification.current_level} • {profile.gamification.level_name}
                     </Text>
                     {profile.subscription_type === 'premium' && (
                       <View style={styles.premiumBadgeProfile}>
@@ -456,7 +456,7 @@ export default function HomeScreen({ navigation }: Props) {
                   style={styles.viewProfileButton}
                   onPress={() => navigation.navigate('Profile', {})}
                 >
-                  <Text style={styles.viewProfileText}>Profili Görüntüle</Text>
+                  <Text style={styles.viewProfileText}>View Profile</Text>
                   <Ionicons name="arrow-forward" size={16} color="#fff" />
                 </TouchableOpacity>
               </LinearGradient>
@@ -475,7 +475,7 @@ export default function HomeScreen({ navigation }: Props) {
                 // RoadmapGeneration screen'ine git
                 navigation.navigate('RoadmapGeneration');
               } else {
-                Alert.alert('Giriş Gerekli', 'Roadmap oluşturmak için önce giriş yapmalısınız.');
+                Alert.alert('Login Required', 'Please login first to create a roadmap.');
               }
             }}
           >
@@ -513,11 +513,11 @@ export default function HomeScreen({ navigation }: Props) {
           >
             <LinearGradient colors={['#ff9a9e', '#fecfef']} style={styles.actionGradient}>
               <Ionicons name="person-circle-outline" size={26} color="#fff" />
-              <Text style={styles.actionText}>Profil</Text>
+              <Text style={styles.actionText}>Profile</Text>
               {isLoggedIn && (
-                <Text style={styles.profileStatText}>
-                  Seviye {gamificationData.currentLevel} • {gamificationData.currentStreak}🔥
-                </Text>
+                                  <Text style={styles.profileStatText}>
+                    Level {gamificationData.currentLevel} • {gamificationData.currentStreak}🔥
+                  </Text>
               )}
             </LinearGradient>
                     </TouchableOpacity>
@@ -538,7 +538,7 @@ export default function HomeScreen({ navigation }: Props) {
           >
             <LinearGradient colors={['#10b981', '#059669']} style={styles.actionGradient}>
               <Ionicons name="calendar-outline" size={26} color="#fff" />
-              <Text style={styles.actionText}>Takvim</Text>
+              <Text style={styles.actionText}>Calendar</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -550,20 +550,20 @@ export default function HomeScreen({ navigation }: Props) {
               <LinearGradient colors={['#667eea', '#764ba2']} style={styles.dailyStudyGradient}>
                 <View style={styles.dailyStudyHeader}>
                   <Ionicons name="time" size={24} color="#fff" />
-                  <Text style={styles.dailyStudyTitle}>Bugünkü Çalışma</Text>
+                  <Text style={styles.dailyStudyTitle}>Today's Study</Text>
                 </View>
                 <View style={styles.dailyStudyStats}>
                   <View style={styles.dailyStudyStat}>
                     <Text style={styles.dailyStudyValue}>
                       {Math.floor(gamificationData.totalStudyMinutes / 60)}
                     </Text>
-                    <Text style={styles.dailyStudyLabel}>Saat</Text>
+                    <Text style={styles.dailyStudyLabel}>Hours</Text>
                   </View>
                   <View style={styles.dailyStudyStat}>
                     <Text style={styles.dailyStudyValue}>
                       {gamificationData.totalStudyMinutes % 60}
                     </Text>
-                    <Text style={styles.dailyStudyLabel}>Dakika</Text>
+                    <Text style={styles.dailyStudyLabel}>Minutes</Text>
                   </View>
                   <View style={styles.dailyStudyStat}>
                     <Text style={styles.dailyStudyValue}>
@@ -588,9 +588,9 @@ export default function HomeScreen({ navigation }: Props) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {isRegisterMode ? 'Kayıt Ol' : 'Giriş Yap'}
-              </Text>
+                              <Text style={styles.modalTitle}>
+                  {isRegisterMode ? 'Register' : 'Login'}
+                </Text>
               <TouchableOpacity
                 onPress={() => {
                   setShowAuthModal(false);
@@ -615,7 +615,7 @@ export default function HomeScreen({ navigation }: Props) {
                 style={[styles.tab, !isRegisterMode && styles.activeTab]}
               >
                 <Text style={[styles.tabText, !isRegisterMode && styles.activeTabText]}>
-                  Giriş Yap
+                  Login
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -623,7 +623,7 @@ export default function HomeScreen({ navigation }: Props) {
                 style={[styles.tab, isRegisterMode && styles.activeTab]}
               >
                 <Text style={[styles.tabText, isRegisterMode && styles.activeTabText]}>
-                  Kayıt Ol
+                  Register
                 </Text>
               </TouchableOpacity>
             </View>
@@ -632,7 +632,7 @@ export default function HomeScreen({ navigation }: Props) {
               <View style={styles.formContainer}>
                 <TextInput
                   style={styles.input}
-                  placeholder="E-posta"
+                  placeholder="Email"
                   value={loginForm.email}
                   onChangeText={(text) => setLoginForm({ ...loginForm, email: text })}
                   keyboardType="email-address"
@@ -640,7 +640,7 @@ export default function HomeScreen({ navigation }: Props) {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Şifre"
+                  placeholder="Password"
                   value={loginForm.password}
                   onChangeText={(text) => setLoginForm({ ...loginForm, password: text })}
                   secureTextEntry
@@ -651,14 +651,14 @@ export default function HomeScreen({ navigation }: Props) {
                   style={[styles.submitButton, loading && styles.submitButtonDisabled]}
                 >
                   <Text style={styles.submitButtonText}>
-                    {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+                    {loading ? 'Logging in...' : 'Login'}
                   </Text>
                 </TouchableOpacity>
 
                 {/* Sosyal Medya Giriş Bölümü */}
                 <View style={styles.dividerContainer}>
                   <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>veya</Text>
+                  <Text style={styles.dividerText}>or</Text>
                   <View style={styles.dividerLine} />
                 </View>
 
@@ -671,7 +671,7 @@ export default function HomeScreen({ navigation }: Props) {
                 >
                   <View style={styles.socialButtonContent}>
                     <Ionicons name="logo-apple" size={20} color="white" />
-                    <Text style={[styles.socialButtonText, styles.appleButtonText]}>Apple ile Giriş Yap</Text>
+                    <Text style={[styles.socialButtonText, styles.appleButtonText]}>Sign in with Apple</Text>
                   </View>
                 </TouchableOpacity>
               </View>
@@ -679,13 +679,13 @@ export default function HomeScreen({ navigation }: Props) {
               <View style={styles.formContainer}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Ad Soyad"
+                  placeholder="Full Name"
                   value={registerForm.name}
                   onChangeText={(text) => setRegisterForm({ ...registerForm, name: text })}
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="E-posta"
+                  placeholder="Email"
                   value={registerForm.email}
                   onChangeText={(text) => setRegisterForm({ ...registerForm, email: text })}
                   keyboardType="email-address"
@@ -693,7 +693,7 @@ export default function HomeScreen({ navigation }: Props) {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Şifre"
+                  placeholder="Password"
                   value={registerForm.password}
                   onChangeText={(text) => setRegisterForm({ ...registerForm, password: text })}
                   secureTextEntry
@@ -704,14 +704,14 @@ export default function HomeScreen({ navigation }: Props) {
                   style={[styles.submitButton, loading && styles.submitButtonDisabled]}
                 >
                   <Text style={styles.submitButtonText}>
-                    {loading ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}
+                    {loading ? 'Registering...' : 'Register'}
                   </Text>
                 </TouchableOpacity>
 
                 {/* Sosyal Medya Giriş Bölümü */}
                 <View style={styles.dividerContainer}>
                   <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>veya</Text>
+                  <Text style={styles.dividerText}>or</Text>
                   <View style={styles.dividerLine} />
                 </View>
 
@@ -724,7 +724,7 @@ export default function HomeScreen({ navigation }: Props) {
                 >
                   <View style={styles.socialButtonContent}>
                     <Ionicons name="logo-apple" size={20} color="white" />
-                    <Text style={[styles.socialButtonText, styles.appleButtonText]}>Apple ile Kayıt Ol</Text>
+                    <Text style={[styles.socialButtonText, styles.appleButtonText]}>Sign up with Apple</Text>
                   </View>
                 </TouchableOpacity>
               </View>

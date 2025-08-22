@@ -131,7 +131,7 @@ export default function CommunityScreen({ navigation }: Props) {
       setHasMore(communityPosts.length === 20);
       
     } catch (error) {
-      Alert.alert('Hata', 'Topluluk verileri yüklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while loading community data');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -158,7 +158,7 @@ export default function CommunityScreen({ navigation }: Props) {
       setHasMore(true);
       loadCommunityData(false);
     } catch (error) {
-      Alert.alert('Hata', 'Beğeni işlemi başarısız oldu');
+              Alert.alert('Error', 'Like operation failed');
     }
   };
 
@@ -171,7 +171,7 @@ export default function CommunityScreen({ navigation }: Props) {
       const postComments = await getPostComments(post.id);
       setComments(postComments);
     } catch (error) {
-      Alert.alert('Hata', 'Yorumlar yüklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while loading comments');
     }
   };
 
@@ -192,7 +192,7 @@ export default function CommunityScreen({ navigation }: Props) {
       setHasMore(true);
       loadCommunityData(false);
     } catch (error) {
-      Alert.alert('Hata', 'Yorum eklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while adding comment');
     } finally {
       setCommentLoading(false);
     }
@@ -256,10 +256,10 @@ export default function CommunityScreen({ navigation }: Props) {
 
   const getTypeLabel = (type?: string) => {
     switch (type || 'question') {
-      case 'question': return 'Soru';
-      case 'discussion': return 'Tartışma';
-      case 'tip': return 'İpucu';
-      default: return 'Genel';
+              case 'question': return 'Question';
+      case 'discussion': return 'Discussion';
+      case 'tip': return 'Tip';
+              default: return 'General';
     }
   };
 
@@ -273,7 +273,7 @@ export default function CommunityScreen({ navigation }: Props) {
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.loadingText}>Yükleniyor...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -297,14 +297,14 @@ export default function CommunityScreen({ navigation }: Props) {
           <TouchableOpacity style={styles.quickCard} onPress={() => setSelectedFilter('my_questions')}>
             <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.quickCardGradient}>
               <Ionicons name="chatbubbles" size={28} color="#ffffff" />
-              <Text style={styles.quickCardTitle}>Sorularım</Text>
+              <Text style={styles.quickCardTitle}>My Questions</Text>
             </LinearGradient>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.quickCard} onPress={() => setSelectedFilter('my_topics')}>
             <LinearGradient colors={['#10b981', '#059669']} style={styles.quickCardGradient}>
               <Ionicons name="book" size={28} color="#ffffff" />
-              <Text style={styles.quickCardTitle}>Konularım</Text>
+              <Text style={styles.quickCardTitle}>My Topics</Text>
             </LinearGradient>
           </TouchableOpacity>
           
@@ -318,7 +318,7 @@ export default function CommunityScreen({ navigation }: Props) {
           <TouchableOpacity style={styles.quickCard} onPress={() => setSelectedFilter('popular')}>
             <LinearGradient colors={['#8b5cf6', '#7c3aed']} style={styles.quickCardGradient}>
               <Ionicons name="star" size={28} color="#ffffff" />
-              <Text style={styles.quickCardTitle}>Popüler</Text>
+              <Text style={styles.quickCardTitle}>Popular</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -340,7 +340,7 @@ export default function CommunityScreen({ navigation }: Props) {
             onPress={() => setSelectedFilter('popular')}
           >
             <Text style={[styles.filterText, selectedFilter === 'popular' && styles.activeFilterText]}>
-              Popüler
+              Popular
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -356,7 +356,7 @@ export default function CommunityScreen({ navigation }: Props) {
             onPress={() => setSelectedFilter('my_topics')}
           >
             <Text style={[styles.filterText, selectedFilter === 'my_topics' && styles.activeFilterText]}>
-              Konularım
+              My Topics
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -364,7 +364,7 @@ export default function CommunityScreen({ navigation }: Props) {
             onPress={() => setSelectedFilter('my_questions')}
           >
             <Text style={[styles.filterText, selectedFilter === 'my_questions' && styles.activeFilterText]}>
-              Sorularım
+              My Questions
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -376,7 +376,7 @@ export default function CommunityScreen({ navigation }: Props) {
           <View style={styles.selectedSkillContent}>
             <Ionicons name="code" size={20} color="#3b82f6" />
             <Text style={styles.selectedSkillText}>
-              {selectedSkill} konusu gösteriliyor
+              Showing {selectedSkill} topic
             </Text>
             <TouchableOpacity 
               style={styles.clearFilterButton}
@@ -417,7 +417,7 @@ export default function CommunityScreen({ navigation }: Props) {
           loadingMore ? (
             <View style={styles.loadingMoreContainer}>
               <ActivityIndicator size="small" color="#3b82f6" />
-              <Text style={styles.loadingMoreText}>Daha fazla gönderi yükleniyor...</Text>
+              <Text style={styles.loadingMoreText}>Loading more posts...</Text>
             </View>
           ) : null
         }
@@ -426,10 +426,10 @@ export default function CommunityScreen({ navigation }: Props) {
             <View style={styles.emptyContainer}>
               <LinearGradient colors={['#f8fafc', '#e2e8f0']} style={styles.emptyGradient}>
                 <Ionicons name="book-outline" size={80} color="#10b981" />
-                <Text style={styles.emptyTitle}>Konularınızı Seçin 📚</Text>
+                <Text style={styles.emptyTitle}>Choose Your Topics 📚</Text>
                 <Text style={styles.emptyDescription}>
-                  Hangi konuyla ilgili gönderileri görmek istiyorsunuz? 
-                  Roadmap'lerinizden birini seçin.
+                  Which topic would you like to see posts about? 
+                  Select one of your roadmaps.
                 </Text>
                 {userRoadmaps.length > 0 ? (
                   <View style={styles.roadmapList}>
@@ -468,13 +468,13 @@ export default function CommunityScreen({ navigation }: Props) {
                 ) : roadmapsLoading ? (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#10b981" />
-                    <Text style={styles.loadingText}>Konularınız yükleniyor...</Text>
+                    <Text style={styles.loadingText}>Loading your topics...</Text>
                   </View>
                 ) : (
                   <View style={styles.emptyActions}>
                     <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('RoadmapGeneration' as any)}>
                       <Ionicons name="add-circle" size={20} color="#ffffff" />
-                      <Text style={styles.emptyButtonText}>İlk Roadmap'ini Oluştur</Text>
+                      <Text style={styles.emptyButtonText}>Create Your First Roadmap</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -484,15 +484,15 @@ export default function CommunityScreen({ navigation }: Props) {
             <View style={styles.emptyContainer}>
               <LinearGradient colors={['#f8fafc', '#e2e8f0']} style={styles.emptyGradient}>
                 <Ionicons name="rocket-outline" size={80} color="#3b82f6" />
-                <Text style={styles.emptyTitle}>Topluluk Henüz Başlıyor! 🚀</Text>
+                <Text style={styles.emptyTitle}>Community is Just Starting! 🚀</Text>
                 <Text style={styles.emptyDescription}>
-                  İlk gönderiyi sen yap ve topluluğu başlat! Sorular sor, deneyimlerini paylaş, 
-                  diğer öğrencilerle bağlantı kur.
+                  Be the first to post and start the community! Ask questions, share your experiences, 
+                  connect with other learners.
                 </Text>
                 <View style={styles.emptyActions}>
                   <TouchableOpacity style={styles.emptyButton} onPress={handleCreatePost}>
                     <Ionicons name="add-circle" size={20} color="#ffffff" />
-                    <Text style={styles.emptyButtonText}>İlk Gönderiyi Yap</Text>
+                    <Text style={styles.emptyButtonText}>Make First Post</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -512,7 +512,7 @@ export default function CommunityScreen({ navigation }: Props) {
             <TouchableOpacity onPress={() => setCommentModalVisible(false)}>
               <Ionicons name="close" size={24} color="#1f2937" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Yorumlar</Text>
+            <Text style={styles.modalTitle}>Comments</Text>
             <View style={styles.placeholder} />
           </View>
 
@@ -533,8 +533,8 @@ export default function CommunityScreen({ navigation }: Props) {
             style={styles.commentsList}
             ListEmptyComponent={
               <View style={styles.emptyComments}>
-                <Text style={styles.emptyCommentsText}>Henüz yorum yok</Text>
-                <Text style={styles.emptyCommentsSubtext}>İlk yorumu sen yap!</Text>
+                        <Text style={styles.emptyCommentsText}>No comments yet</Text>
+        <Text style={styles.emptyCommentsSubtext}>Be the first to comment!</Text>
               </View>
             }
           />
@@ -544,7 +544,7 @@ export default function CommunityScreen({ navigation }: Props) {
               style={styles.commentInput}
               value={newComment}
               onChangeText={setNewComment}
-              placeholder="Yorumunuzu yazın..."
+                                placeholder="Write your comment..."
               placeholderTextColor="#9ca3af"
               multiline
             />

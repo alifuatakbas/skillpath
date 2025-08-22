@@ -61,7 +61,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
       const myPosts = await getCommunityPosts('my');
       setPosts(myPosts);
     } catch (error) {
-      Alert.alert('Hata', 'Postlar yüklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while loading posts');
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
       const userRoadmaps = await getUserRoadmaps();
       setRoadmaps(userRoadmaps);
     } catch (error) {
-      Alert.alert('Hata', 'Roadmaplar yüklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while loading roadmaps');
     } finally {
       setRoadmapsLoading(false);
     }
@@ -88,7 +88,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
           : post
       ));
     } catch (error) {
-      Alert.alert('Hata', 'Beğeni işlemi başarısız oldu');
+              Alert.alert('Error', 'Like operation failed');
     }
   };
 
@@ -101,13 +101,13 @@ export default function MyCommunityScreen({ navigation }: Props) {
           : reply
       ));
     } catch (error) {
-      Alert.alert('Hata', 'Yorum beğenisi başarısız oldu');
+              Alert.alert('Error', 'Comment like failed');
     }
   };
 
   const handleNewPost = async () => {
     if (!newPostTitle.trim() || !newPostContent.trim()) {
-      Alert.alert('Hata', 'Lütfen başlık ve içerik alanlarını doldurun');
+              Alert.alert('Error', 'Please fill in title and content fields');
       return;
     }
 
@@ -126,9 +126,9 @@ export default function MyCommunityScreen({ navigation }: Props) {
       setNewPostContent('');
       setNewPostSkill('');
       setShowNewPost(false);
-      Alert.alert('Başarılı', 'Soru paylaşıldı!');
+              Alert.alert('Success', 'Question shared!');
     } catch (error) {
-      Alert.alert('Hata', 'Post oluşturulurken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while creating the post');
     } finally {
       setSubmitting(false);
     }
@@ -140,7 +140,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
       setReplies(postReplies);
       setShowReplies(postId);
     } catch (error) {
-      Alert.alert('Hata', 'Yorumlar yüklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while loading comments');
     }
   };
 
@@ -150,41 +150,41 @@ export default function MyCommunityScreen({ navigation }: Props) {
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
     if (diffInSeconds < 60) {
-      return `${diffInSeconds} saniye önce`;
+      return `${diffInSeconds} seconds ago`;
     }
 
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     if (diffInMinutes < 60) {
-      return `${diffInMinutes} dakika önce`;
+      return `${diffInMinutes} minutes ago`;
     }
 
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) {
-      return `${diffInHours} saat önce`;
+      return `${diffInHours} hours ago`;
     }
 
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) {
-      return `${diffInDays} gün önce`;
+      return `${diffInDays} days ago`;
     }
 
     const diffInWeeks = Math.floor(diffInDays / 7);
     if (diffInWeeks < 4) {
-      return `${diffInWeeks} hafta önce`;
+      return `${diffInWeeks} weeks ago`;
     }
 
     const diffInMonths = Math.floor(diffInDays / 30);
     if (diffInMonths < 12) {
-      return `${diffInMonths} ay önce`;
+      return `${diffInMonths} months ago`;
     }
 
     const diffInYears = Math.floor(diffInDays / 365);
-    return `${diffInYears} yıl önce`;
+    return `${diffInYears} years ago`;
   };
 
   const handleReply = async (postId: number) => {
     if (!newReply.trim()) {
-      Alert.alert('Hata', 'Lütfen yorum içeriğini yazın');
+              Alert.alert('Error', 'Please write comment content');
       return;
     }
 
@@ -205,9 +205,9 @@ export default function MyCommunityScreen({ navigation }: Props) {
           : post
       ));
       
-      Alert.alert('Başarılı', 'Yorum eklendi!');
+              Alert.alert('Success', 'Comment added!');
     } catch (error) {
-      Alert.alert('Hata', 'Yorum eklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while adding comment');
     } finally {
       setReplySubmitting(false);
     }
@@ -226,7 +226,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
           >
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Benim Topluluğum</Text>
+          <Text style={styles.headerTitle}>My Community</Text>
           <TouchableOpacity
             onPress={() => setShowNewPost(!showNewPost)}
             style={styles.addButton}
@@ -241,14 +241,14 @@ export default function MyCommunityScreen({ navigation }: Props) {
             <Text style={styles.newPostTitle}>Yeni Soru Sor</Text>
             <TextInput
               style={styles.titleInput}
-              placeholder="Soru başlığı..."
+                              placeholder="Question title..."
               value={newPostTitle}
               onChangeText={setNewPostTitle}
               placeholderTextColor="#9ca3af"
             />
             <TextInput
               style={styles.contentInput}
-              placeholder="Sorunuzu detaylı açıklayın..."
+                              placeholder="Explain your question in detail..."
               value={newPostContent}
               onChangeText={setNewPostContent}
               multiline
@@ -257,7 +257,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
             />
             <TextInput
               style={styles.titleInput}
-              placeholder="Skill adı (opsiyonel) - ör: React, Python, CSS"
+                              placeholder="Skill name (optional) - ex: React, Python, CSS"
               value={newPostSkill}
               onChangeText={setNewPostSkill}
               placeholderTextColor="#9ca3af"
@@ -267,7 +267,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
                 onPress={() => setShowNewPost(false)}
                 style={styles.cancelButton}
               >
-                <Text style={styles.cancelButtonText}>İptal</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleNewPost}
@@ -277,7 +277,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
                 {submitting ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.submitButtonText}>Paylaş</Text>
+                  <Text style={styles.submitButtonText}>Share</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -290,17 +290,17 @@ export default function MyCommunityScreen({ navigation }: Props) {
           {roadmapsLoading ? (
             <View style={styles.roadmapLoadingContainer}>
               <ActivityIndicator size="small" color="#3b82f6" />
-              <Text style={styles.roadmapLoadingText}>Roadmaplar yükleniyor...</Text>
+              <Text style={styles.roadmapLoadingText}>Loading roadmaps...</Text>
             </View>
           ) : roadmaps.length === 0 ? (
             <View style={styles.emptyRoadmapsContainer}>
               <Ionicons name="map-outline" size={32} color="#9ca3af" />
-              <Text style={styles.emptyRoadmapsText}>Henüz roadmap oluşturmamışsınız</Text>
+              <Text style={styles.emptyRoadmapsText}>You haven't created any roadmaps yet</Text>
               <TouchableOpacity 
                 style={styles.createRoadmapButton}
                 onPress={() => navigation.navigate('RoadmapGeneration')}
               >
-                <Text style={styles.createRoadmapButtonText}>İlk Roadmap'inizi Oluşturun</Text>
+                <Text style={styles.createRoadmapButtonText}>Create Your First Roadmap</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -328,11 +328,11 @@ export default function MyCommunityScreen({ navigation }: Props) {
                         {roadmap.title}
                       </Text>
                       <Text style={styles.roadmapProgress}>
-                        %{Math.round(roadmap.completion_percentage)} tamamlandı
+                        %{Math.round(roadmap.completion_percentage)} completed
                       </Text>
                       <View style={styles.roadmapStats}>
                         <Text style={styles.roadmapStatsText}>
-                          {roadmap.completed_steps}/{roadmap.total_steps} adım
+                          {roadmap.completed_steps}/{roadmap.total_steps} steps
                         </Text>
                         <Text style={styles.roadmapStatsText}>
                           {roadmap.total_weeks} hafta
@@ -352,13 +352,13 @@ export default function MyCommunityScreen({ navigation }: Props) {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#3b82f6" />
-              <Text style={styles.loadingText}>Postlar yükleniyor...</Text>
+              <Text style={styles.loadingText}>Loading posts...</Text>
             </View>
           ) : posts.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="chatbubbles-outline" size={48} color="#9ca3af" />
-              <Text style={styles.emptyText}>Henüz soru sormamışsınız</Text>
-              <Text style={styles.emptySubtext}>İlk sorunuzu sormak için + butonuna tıklayın</Text>
+                          <Text style={styles.emptyText}>You haven't asked any questions yet</Text>
+            <Text style={styles.emptySubtext}>Click the + button to ask your first question</Text>
             </View>
           ) : (
             posts.map((post) => (
@@ -409,7 +409,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
                   
                   <TouchableOpacity style={styles.actionButton}>
                     <Ionicons name="share-outline" size={18} color="#6b7280" />
-                    <Text style={styles.actionText}>Paylaş</Text>
+                    <Text style={styles.actionText}>Share</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -422,7 +422,7 @@ export default function MyCommunityScreen({ navigation }: Props) {
                     <View style={styles.newReplyContainer}>
                       <TextInput
                         style={styles.replyInput}
-                        placeholder="Yorumunuzu yazın..."
+                        placeholder="Write your comment..."
                         value={newReply}
                         onChangeText={setNewReply}
                         multiline

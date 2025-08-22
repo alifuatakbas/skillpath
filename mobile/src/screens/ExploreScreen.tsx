@@ -58,7 +58,7 @@ export default function ExploreScreen({ navigation }: Props) {
       setPosts(postsData);
       setStats(statsData);
     } catch (error) {
-      Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while loading data');
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ export default function ExploreScreen({ navigation }: Props) {
           : post
       ));
     } catch (error) {
-      Alert.alert('Hata', 'Beğeni işlemi başarısız oldu');
+              Alert.alert('Error', 'Like operation failed');
     }
   };
 
@@ -86,7 +86,7 @@ export default function ExploreScreen({ navigation }: Props) {
           : reply
       ));
     } catch (error) {
-      Alert.alert('Hata', 'Yorum beğenisi başarısız oldu');
+              Alert.alert('Error', 'Comment like failed');
     }
   };
 
@@ -96,7 +96,7 @@ export default function ExploreScreen({ navigation }: Props) {
       setReplies(repliesData);
       setShowReplies(postId);
     } catch (error) {
-      Alert.alert('Hata', 'Yorumlar yüklenirken bir hata oluştu');
+              Alert.alert('Error', 'An error occurred while loading comments');
     }
   };
 
@@ -123,7 +123,7 @@ export default function ExploreScreen({ navigation }: Props) {
       
       setNewReply('');
     } catch (error) {
-      Alert.alert('Hata', 'Yorum gönderilemedi');
+              Alert.alert('Error', 'Could not send comment');
     } finally {
       setReplySubmitting(false);
     }
@@ -135,21 +135,21 @@ export default function ExploreScreen({ navigation }: Props) {
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
     if (diffInSeconds < 60) {
-      return `${diffInSeconds} saniye önce`;
+      return `${diffInSeconds} seconds ago`;
     }
 
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     if (diffInMinutes < 60) {
-      return `${diffInMinutes} dakika önce`;
+      return `${diffInMinutes} minutes ago`;
     }
 
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) {
-      return `${diffInHours} saat önce`;
+      return `${diffInHours} hours ago`;
     }
 
     const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays} gün önce`;
+    return `${diffInDays} days ago`;
   };
 
   const getSkillIcon = (skillName: string | undefined) => {
@@ -195,7 +195,7 @@ export default function ExploreScreen({ navigation }: Props) {
           >
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Keşfet</Text>
+          <Text style={styles.headerTitle}>Explore</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -215,7 +215,7 @@ export default function ExploreScreen({ navigation }: Props) {
 
         {/* Popular Skills */}
         <View style={styles.skillsSection}>
-          <Text style={styles.sectionTitle}>Popüler Konular</Text>
+                      <Text style={styles.sectionTitle}>Popular Topics</Text>
           {loading ? (
             <ActivityIndicator size="small" color="#3b82f6" />
           ) : (
@@ -234,7 +234,7 @@ export default function ExploreScreen({ navigation }: Props) {
                       />
                       <Text style={styles.skillName}>{skill.name}</Text>
                       <Text style={styles.skillStats}>
-                        {skill.learner_count} öğrenci • {skill.post_count} gönderi
+                        {skill.learner_count} learners • {skill.post_count} posts
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -250,9 +250,9 @@ export default function ExploreScreen({ navigation }: Props) {
             <View style={styles.filterTabs}>
               {[
                 { key: 'trending', label: 'Trend', icon: 'trending-up' },
-                { key: 'popular', label: 'Popüler', icon: 'flame' },
-                { key: 'recent', label: 'Yeni', icon: 'time' },
-                { key: 'expert', label: 'Uzman', icon: 'star' },
+                { key: 'popular', label: 'Popular', icon: 'flame' },
+                    { key: 'recent', label: 'Recent', icon: 'time' },
+    { key: 'expert', label: 'Expert', icon: 'star' },
               ].map((filter) => (
                 <TouchableOpacity
                   key={filter.key}
@@ -284,7 +284,7 @@ export default function ExploreScreen({ navigation }: Props) {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#3b82f6" />
-              <Text style={styles.loadingText}>Gönderiler yükleniyor...</Text>
+              <Text style={styles.loadingText}>Loading posts...</Text>
             </View>
           ) : (
             posts.map((post) => (
@@ -344,7 +344,7 @@ export default function ExploreScreen({ navigation }: Props) {
                   
                   <TouchableOpacity style={styles.actionButton}>
                     <Ionicons name="share-outline" size={18} color="#6b7280" />
-                    <Text style={styles.actionText}>Paylaş</Text>
+                    <Text style={styles.actionText}>Share</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -390,7 +390,7 @@ export default function ExploreScreen({ navigation }: Props) {
                     <View style={styles.replyInput}>
                       <TextInput
                         style={styles.replyTextInput}
-                        placeholder="Yorumunuzu yazın..."
+                        placeholder="Write your comment..."
                         value={newReply}
                         onChangeText={setNewReply}
                         multiline

@@ -36,7 +36,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
       // Gamification aktivitesini kaydet
       await recordActivity();
     } catch (error) {
-      Alert.alert('Hata', 'Dashboard verileri yüklenemedi');
+              Alert.alert('Error', 'Could not load dashboard data');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -90,7 +90,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
           />
         </View>
         <Text style={styles.progressText}>
-          {roadmap.completed_steps}/{roadmap.total_steps} adım (%{roadmap.completion_percentage})
+                        {roadmap.completed_steps}/{roadmap.total_steps} steps (%{roadmap.completion_percentage})
         </Text>
       </View>
       
@@ -115,7 +115,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Dashboard yükleniyor...</Text>
+        <Text style={styles.loadingText}>Loading dashboard...</Text>
       </View>
     );
   }
@@ -129,7 +129,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Dashboard</Text>
-          <Text style={styles.headerSubtitle}>Öğrenme yolculuğunuza genel bakış</Text>
+          <Text style={styles.headerSubtitle}>Overview of your learning journey</Text>
           
           {/* Notification Buttons */}
           <View style={styles.notificationButtons}>
@@ -138,7 +138,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
               onPress={() => navigation.navigate('NotificationSettings')}
             >
               <Text style={styles.notificationIcon}>⚙️</Text>
-              <Text style={styles.notificationButtonText}>Bildirim Ayarları</Text>
+              <Text style={styles.notificationButtonText}>Notification Settings</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -146,7 +146,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
               onPress={() => navigation.navigate('NotificationHistory')}
             >
               <Text style={styles.notificationIcon}>🔔</Text>
-              <Text style={styles.notificationButtonText}>Bildirim Geçmişi</Text>
+              <Text style={styles.notificationButtonText}>Notification History</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -177,7 +177,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
                 color="#8BC34A"
               />
               <StatCard
-                title="İlerleme"
+                title="Progress"
                 value={`%${stats.completion_percentage}`}
                 icon="trending-up-outline"
                 color="#FF9800"
@@ -186,13 +186,13 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
             
             <View style={styles.statsRow}>
               <StatCard
-                title="Toplam Adım"
+                title="Total Steps"
                 value={`${stats.completed_steps}/${stats.total_steps}`}
                 icon="list-outline"
                 color="#9C27B0"
               />
               <StatCard
-                title="Öğrenme Saati"
+                title="Learning Hours"
                 value={`${stats.total_learning_hours}h`}
                 icon="time-outline"
                 color="#FF5722"
@@ -224,8 +224,8 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
           ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="map-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>Henüz roadmap'iniz yok</Text>
-              <Text style={styles.emptySubtext}>İlk roadmap'inizi oluşturmak için yukarıdaki butona tıklayın</Text>
+                      <Text style={styles.emptyText}>You don't have any roadmaps yet</Text>
+        <Text style={styles.emptySubtext}>Click the button above to create your first roadmap</Text>
             </View>
           )}
         </View>

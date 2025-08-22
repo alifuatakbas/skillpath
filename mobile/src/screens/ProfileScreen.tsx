@@ -70,7 +70,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
         });
       }
     } catch (error) {
-      Alert.alert('Hata', 'Profil yüklenemedi');
+              Alert.alert('Error', 'Could not load profile');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -121,7 +121,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#667eea" />
-        <Text style={styles.loadingText}>Profil yükleniyor...</Text>
+        <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
@@ -129,7 +129,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
   if (!profile) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Profil bulunamadı</Text>
+        <Text style={styles.errorText}>Profile not found</Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadProfile}>
           <Text style={styles.retryText}>Tekrar Dene</Text>
         </TouchableOpacity>
@@ -148,7 +148,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {profile.is_own_profile ? 'Profilim' : 'Kullanıcı Profili'}
+                      {profile.is_own_profile ? 'My Profile' : 'User Profile'}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -171,7 +171,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
           )}
           {getSubscriptionBadge(profile.subscription_type)}
           <Text style={styles.joinDate}>
-            Katılım: {new Date(profile.created_at).toLocaleDateString('tr-TR')}
+            Joined: {new Date(profile.created_at).toLocaleDateString('en-US')}
           </Text>
         </View>
 
@@ -180,12 +180,12 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
         
         {/* Quick Stats */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Hızlı İstatistikler</Text>
+                      <Text style={styles.sectionTitle}>📊 Quick Statistics</Text>
           <View style={styles.quickStatsGrid}>
             <View style={styles.quickStatCard}>
               <Ionicons name="flame" size={24} color="#ff6b6b" />
               <Text style={styles.quickStatValue}>{gamificationData.currentStreak}</Text>
-              <Text style={styles.quickStatLabel}>Güncel Streak</Text>
+                              <Text style={styles.quickStatLabel}>Current Streak</Text>
             </View>
             <View style={styles.quickStatCard}>
               <Ionicons name="star" size={24} color="#ffd700" />
@@ -197,14 +197,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={styles.quickStatValue}>
                 {gamificationData.achievements.filter(a => a.isUnlocked).length}
               </Text>
-              <Text style={styles.quickStatLabel}>Kazanılan Rozet</Text>
+                              <Text style={styles.quickStatLabel}>Earned Badges</Text>
             </View>
             <View style={styles.quickStatCard}>
               <Ionicons name="time" size={24} color="#4facfe" />
               <Text style={styles.quickStatValue}>
                 {Math.floor(gamificationData.totalStudyMinutes / 60)}
               </Text>
-              <Text style={styles.quickStatLabel}>Çalışma Saati</Text>
+                              <Text style={styles.quickStatLabel}>Study Hours</Text>
             </View>
           </View>
         </View>
@@ -250,11 +250,11 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Stats Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 İstatistikler</Text>
+                      <Text style={styles.sectionTitle}>📊 Statistics</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{profile.gamification.current_streak}</Text>
-              <Text style={styles.statLabel}>Güncel Streak</Text>
+                              <Text style={styles.statLabel}>Current Streak</Text>
               <Text style={styles.statIcon}>🔥</Text>
             </View>
             <View style={styles.statCard}>
@@ -274,12 +274,12 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{profile.total_study_hours}</Text>
-              <Text style={styles.statLabel}>Çalışma Saati</Text>
+                              <Text style={styles.statLabel}>Study Hours</Text>
               <Text style={styles.statIcon}>⏰</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{profile.gamification.daily_xp_today}</Text>
-              <Text style={styles.statLabel}>Bugünkü XP</Text>
+                              <Text style={styles.statLabel}>Today's XP</Text>
               <Text style={styles.statIcon}>⭐</Text>
             </View>
           </View>
@@ -287,7 +287,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Achievements Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🏆 Başarı Rozetleri</Text>
+                      <Text style={styles.sectionTitle}>🏆 Achievement Badges</Text>
           <AchievementsList compact />
         </View>
       </ScrollView>

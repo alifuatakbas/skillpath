@@ -36,16 +36,16 @@ interface PaywallScreenProps {
 const FALLBACK_PLANS: SubscriptionProduct[] = [
   {
     productId: 'skillpath_premium_monthly',
-    title: 'Premium Aylık',
-    description: 'Tüm premium özellikler',
+          title: 'Premium Monthly',
+      description: 'All premium features',
     price: '6.99',
     currency: 'USD',
     localizedPrice: '$6.99',
   },
   {
     productId: 'skillpath_premium_yearly',
-    title: 'Premium Yıllık',
-    description: 'Tüm premium özellikler + %33 indirim',
+          title: 'Premium Yearly',
+      description: 'All premium features + 33% discount',
     price: '55.99',
     currency: 'USD',
     localizedPrice: '$55.99',
@@ -82,7 +82,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
   const handleStartTrial = async () => {
     if (!selectedPlan) {
-      Alert.alert('Hata', 'Lütfen bir plan seçin');
+              Alert.alert('Error', 'Please select a plan');
       return;
     }
 
@@ -128,18 +128,18 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
               await refreshSubscription();
               
               Alert.alert(
-                'Trial Başlatıldı! 🎉',
-                `3 günlük ücretsiz deneme süreniz başladı. ${selectedPlanData.title} planına abone olacaksınız.`,
+                'Trial Started! 🎉',
+                `Your 3-day free trial has started. You will be subscribed to the ${selectedPlanData.title} plan.`,
                 [
                   {
-                    text: 'Harika!',
+                    text: 'Great!',
                     onPress: () => navigation.goBack(),
                   },
                 ]
               );
             } else {
               const errorData = await response.text();
-              Alert.alert('Hata', 'Trial başlatılamadı. Lütfen tekrar deneyin.');
+              Alert.alert('Error', 'Could not start trial. Please try again.');
             }
           }
           return;
@@ -178,32 +178,32 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
             await refreshSubscription();
             
             Alert.alert(
-              'Trial Başlatıldı! 🎉',
-              `3 günlük ücretsiz deneme süreniz başladı. ${selectedPlanData.title} planına abone olacaksınız.`,
+              'Trial Started! 🎉',
+              `Your 3-day free trial has started. You will be subscribed to the ${selectedPlanData.title} plan.`,
               [
                 {
-                  text: 'Harika!',
+                  text: 'Great!',
                   onPress: () => navigation.goBack(),
                 },
               ]
             );
           } else {
             const errorData = await response.text();
-            Alert.alert('Hata', 'Trial başlatılamadı. Lütfen tekrar deneyin.');
+            Alert.alert('Error', 'Could not start trial. Please try again.');
           }
         } else {
-          Alert.alert('Hata', 'Satın alma işlemi tamamlanamadı. Lütfen tekrar deneyin.');
+          Alert.alert('Error', 'Purchase could not be completed. Please try again.');
         }
       } else {
-        Alert.alert('Hata', 'Seçilen plan bulunamadı.');
+        Alert.alert('Error', 'Selected plan not found.');
       }
     } catch (error: any) {
       
       // Kullanıcı iptal ettiyse farklı mesaj göster
       if (error?.message?.includes('cancel') || error?.message?.includes('user')) {
-        Alert.alert('İptal Edildi', 'Satın alma işlemi iptal edildi.');
+        Alert.alert('Cancelled', 'Purchase was cancelled.');
       } else {
-        Alert.alert('Hata', `Satın alma işlemi başarısız: ${error?.message || 'Beklenmeyen bir hata oluştu'}`);
+        Alert.alert('Error', `Purchase failed: ${error?.message || 'An unexpected error occurred'}`);
       }
     } finally {
       setPurchasing(false);
@@ -214,12 +214,12 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
     try {
       // Basit geri yükleme simülasyonu
       Alert.alert(
-        'Bilgi',
-        'Geri yüklenecek abonelik bulunamadı. Lütfen yeni bir abonelik satın alın.',
-        [{ text: 'Tamam' }]
+        'Info',
+        'No subscription found to restore. Please purchase a new subscription.',
+        [{ text: 'OK' }]
       );
     } catch (error) {
-      Alert.alert('Hata', 'Abonelik geri yükleme başarısız');
+      Alert.alert('Error', 'Subscription restore failed');
     }
   };
 
@@ -248,28 +248,28 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
     },
     {
       icon: 'sparkles-outline',
-      title: 'Gelişmiş AI Öneriler',
-      description: 'Kişiselleştirilmiş öğrenme önerileri',
+      title: 'Advanced AI Recommendations',
+      description: 'Personalized learning recommendations',
     },
     {
       icon: 'analytics-outline',
-      title: 'Detaylı Analitik',
-      description: 'İlerlemenizi detaylı takip edin',
+      title: 'Detailed Analytics',
+      description: 'Track your progress in detail',
     },
     {
       icon: 'trophy-outline',
-      title: 'Rozet & Başarımlar',
-      description: 'Motivasyonunuzu artıran ödüller',
+      title: 'Badges & Achievements',
+      description: 'Rewards that boost your motivation',
     },
     {
       icon: 'people-outline',
-      title: 'Öğrenme Grupları',
-      description: 'Diğer öğrencilerle etkileşim',
+      title: 'Learning Groups',
+      description: 'Interact with other learners',
     },
     {
       icon: 'school-outline',
-      title: 'Mentor Desteği',
-      description: 'Uzman mentorlardan destek alın',
+      title: 'Mentor Support',
+      description: 'Get support from expert mentors',
     },
   ];
 
@@ -277,7 +277,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={styles.loadingText}>Planlar yükleniyor...</Text>
+        <Text style={styles.loadingText}>Loading plans...</Text>
       </View>
     );
   }
@@ -298,7 +298,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>SkillPath Premium</Text>
           <Text style={styles.headerSubtitle}>
-            Öğrenme yolculuğunuzu bir üst seviyeye taşıyın
+            Take your learning journey to the next level
           </Text>
         </View>
       </LinearGradient>
@@ -309,24 +309,24 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
           <View style={styles.trialContainer}>
             <View style={styles.trialBadge}>
               <Ionicons name="time-outline" size={20} color="#fff" />
-              <Text style={styles.trialBadgeText}>{trialDaysLeft} Gün Kaldı</Text>
+              <Text style={styles.trialBadgeText}>{trialDaysLeft} Days Left</Text>
             </View>
-            <Text style={styles.trialTitle}>Ücretsiz Deneme Süreniz</Text>
+            <Text style={styles.trialTitle}>Your Free Trial</Text>
             <Text style={styles.trialDescription}>
               {trialExpiryDate ? 
-                `${trialExpiryDate.toLocaleDateString('tr-TR')} tarihine kadar tüm premium özellikleri ücretsiz deneyin!` :
-                '3 gün boyunca tüm premium özellikleri ücretsiz deneyin!'
+                              `Try all premium features for free until ${trialExpiryDate.toLocaleDateString('en-US')}!` :
+              'Try all premium features for free for 3 days!'
               }
             </Text>
             <Text style={styles.trialWarning}>
-              ⚠️ Deneme süresi sonunda otomatik olarak seçili plana abone olacaksınız.
+              ⚠️ You will be automatically subscribed to the selected plan at the end of the trial.
             </Text>
           </View>
         )}
 
         {/* Premium Features */}
         <View style={styles.featuresContainer}>
-          <Text style={styles.featuresTitle}>Premium Özellikler</Text>
+          <Text style={styles.featuresTitle}>Premium Features</Text>
           {premiumFeatures.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
               <View style={styles.featureIcon}>
@@ -342,7 +342,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
         {/* Subscription Plans */}
         <View style={styles.plansContainer}>
-          <Text style={styles.plansTitle}>Abonelik Planları</Text>
+          <Text style={styles.plansTitle}>Subscription Plans</Text>
           {plans.map((plan) => {
             const displayInfo = getPlanDisplayInfo(plan);
             return (

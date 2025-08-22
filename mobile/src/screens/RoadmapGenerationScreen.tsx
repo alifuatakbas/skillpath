@@ -21,14 +21,14 @@ const RoadmapGenerationScreen = ({ navigation }: { navigation: any }) => {
   const [loading, setLoading] = useState(false);
 
   const levels = [
-    { key: 'beginner', label: 'Başlangıç', color: '#4CAF50' },
-    { key: 'intermediate', label: 'Orta', color: '#FF9800' },
-    { key: 'advanced', label: 'İleri', color: '#F44336' },
+    { key: 'beginner', label: 'Beginner', color: '#4CAF50' },
+    { key: 'intermediate', label: 'Intermediate', color: '#FF9800' },
+    { key: 'advanced', label: 'Advanced', color: '#F44336' },
   ];
 
   const handleGenerateRoadmap = async () => {
     if (!skillName.trim()) {
-      Alert.alert('Hata', 'Lütfen öğrenmek istediğiniz beceriyi girin');
+              Alert.alert('Error', 'Please enter the skill you want to learn');
       return;
     }
 
@@ -52,26 +52,26 @@ const RoadmapGenerationScreen = ({ navigation }: { navigation: any }) => {
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Roadmap Oluştur</Text>
+          <Text style={styles.headerTitle}>Create Roadmap</Text>
         </View>
 
         {/* Form */}
         <View style={styles.form}>
           {/* Skill Name */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Öğrenmek İstediğiniz Skill</Text>
+                          <Text style={styles.label}>Skill You Want to Learn</Text>
             <TextInput
               style={styles.input}
               value={skillName}
               onChangeText={setSkillName}
-              placeholder="Örn: React, Python, Machine Learning"
+                              placeholder="Ex: React, Python, Machine Learning"
               placeholderTextColor="#999"
             />
           </View>
 
           {/* Target Weeks */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Hedef Süre (Hafta)</Text>
+                          <Text style={styles.label}>Target Duration (Weeks)</Text>
             <TextInput
               style={styles.input}
               value={targetWeeks}
@@ -112,7 +112,7 @@ const RoadmapGenerationScreen = ({ navigation }: { navigation: any }) => {
 
           {/* Daily Hours */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Günlük Çalışma Saati</Text>
+                          <Text style={styles.label}>Daily Study Hours</Text>
             <TextInput
               style={styles.input}
               value={dailyHours}
@@ -134,7 +134,7 @@ const RoadmapGenerationScreen = ({ navigation }: { navigation: any }) => {
             ) : (
               <>
                 <Ionicons name="map-outline" size={24} color="#fff" />
-                <Text style={styles.generateButtonText}>Roadmap Oluştur</Text>
+                <Text style={styles.generateButtonText}>Create Roadmap</Text>
               </>
             )}
           </TouchableOpacity>
@@ -143,7 +143,7 @@ const RoadmapGenerationScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.infoContainer}>
             <Ionicons name="information-circle-outline" size={20} color="#fff" />
             <Text style={styles.infoText}>
-              AI destekli kişiselleştirilmiş öğrenme yol haritası oluşturulacak
+              AI-powered personalized learning roadmap will be created
             </Text>
           </View>
         </View>

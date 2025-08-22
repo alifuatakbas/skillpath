@@ -57,7 +57,7 @@ class SubscriptionService {
     try {
       
       
-      // Expo IAP otomatik olarak başlatılır
+      // Expo IAP starts automatically
       this.isInitialized = true;
       
       } catch (error) {
@@ -105,8 +105,8 @@ class SubscriptionService {
     
     try {
       
-      // Expo IAP'de products useIAP hook ile alınır
-      // Bu fonksiyon fallback planları döndürür
+      // In Expo IAP, products are retrieved via useIAP hook
+      // This function returns fallback plans
       return FALLBACK_PLANS;
     } catch (error) {
       return FALLBACK_PLANS;
@@ -122,22 +122,22 @@ class SubscriptionService {
       
       return new Promise((resolve) => {
         Alert.alert(
-          '💳 Premium Satın Al',
-          `${planName} premium aboneliği satın almak istediğinizden emin misiniz?\n\n⚠️ Bu bir test satın alımıdır.`,
+          '💳 Purchase Premium',
+          `Are you sure you want to purchase ${planName} premium subscription?\n\n⚠️ This is a test purchase.`,
           [
             {
-              text: 'İptal',
+              text: 'Cancel',
               style: 'cancel',
               onPress: () => resolve(false),
             },
             {
-              text: 'Satın Al',
+              text: 'Purchase',
               onPress: async () => {
                 try {
                   
-                  // Expo IAP'de purchase useIAP hook ile yapılır
+                  // In Expo IAP, purchase is done via useIAP hook
                     
-                  // Backend'e satın alma bilgisini gönder (test için)
+                  // Send purchase info to backend (for testing)
                     const token = await AsyncStorage.getItem('skillpath_token');
                     const { AppConfig } = await import('../config/environment');
                     
@@ -158,7 +158,7 @@ class SubscriptionService {
                     if (response.ok) {
                       const result = await response.json();
                       
-                      // User data'sını güncelle
+                      // Update user data
                       const userData = await AsyncStorage.getItem('user');
                       if (userData) {
                         const user = JSON.parse(userData);
@@ -170,14 +170,14 @@ class SubscriptionService {
                         await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
                       }
                       
-                      Alert.alert('🎉 Başarılı!', 'Premium aboneliği aktif edildi!');
+                      Alert.alert('🎉 Success!', 'Premium subscription activated!');
                       resolve(true);
                     } else {
-                      Alert.alert('❌ Hata', 'Satın alma işlemi başarısız');
+                      Alert.alert('❌ Error', 'Purchase failed');
                     resolve(false);
                   }
                 } catch (error) {
-                  Alert.alert('❌ Hata', 'Beklenmeyen bir hata oluştu');
+                  Alert.alert('❌ Error', 'An unexpected error occurred');
                   resolve(false);
                 }
               },

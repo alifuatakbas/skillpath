@@ -40,11 +40,11 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
       const isAuth = await TokenManager.isAuthenticated();
       if (!isAuth) {
         Alert.alert(
-          'Giriş Gerekli',
-          'Bildirim ayarlarını görüntülemek için giriş yapmanız gerekiyor.',
-          [
-            {
-              text: 'Giriş Yap',
+                  'Login Required',
+        'You need to login to view notification settings.',
+        [
+          {
+            text: 'Login',
               onPress: () => navigation?.navigate('Home')
             }
           ]
@@ -77,11 +77,11 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
       // Auth hatası kontrolü
       if (error instanceof Error && error.message.includes('Oturum süresi dolmuş')) {
         Alert.alert(
-          'Oturum Süresi Doldu',
-          'Lütfen tekrar giriş yapın.',
-          [
-            {
-              text: 'Giriş Yap',
+                  'Session Expired',
+        'Please login again.',
+        [
+          {
+            text: 'Login',
               onPress: () => navigation?.navigate('Home')
             }
           ]
@@ -89,7 +89,7 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
         return;
       }
       
-      Alert.alert('Hata', 'Bildirim ayarları yüklenirken hata oluştu: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
+              Alert.alert('Error', 'An error occurred while loading notification settings: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -117,9 +117,9 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
       const updated = await updateNotificationPreferences(requestData);
       setPreferences(updated);
       
-      Alert.alert('Başarılı', 'Bildirim ayarları güncellendi');
+              Alert.alert('Success', 'Notification settings updated');
     } catch (error) {
-      Alert.alert('Hata', 'Bildirim ayarları kaydedilemedi');
+              Alert.alert('Error', 'Could not save notification settings');
     } finally {
       setSaving(false);
     }
@@ -166,7 +166,7 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Bildirim ayarları yükleniyor...</Text>
+          <Text style={styles.loadingText}>Loading notification settings...</Text>
         </View>
       </SafeAreaView>
     );
@@ -176,7 +176,7 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Bildirim ayarları yüklenemedi</Text>
+          <Text style={styles.errorText}>Could not load notification settings</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadPreferences}>
             <Text style={styles.retryButtonText}>Tekrar Dene</Text>
           </TouchableOpacity>
@@ -189,10 +189,10 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
-          <Text style={styles.title}>Bildirim Ayarları</Text>
-          <Text style={styles.subtitle}>
-            Bildirim tercihlerinizi yönetin
-          </Text>
+                      <Text style={styles.title}>Notification Settings</Text>
+            <Text style={styles.subtitle}>
+              Manage your notification preferences
+            </Text>
         </View>
 
         {/* Timezone Info */}
@@ -212,13 +212,13 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
 
         {/* Daily Reminders */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Günlük Hatırlatmalar</Text>
+                      <Text style={styles.sectionTitle}>Daily Reminders</Text>
           
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Günlük Hatırlatma</Text>
+              <Text style={styles.settingTitle}>Daily Reminder</Text>
               <Text style={styles.settingDescription}>
-                Her gün öğrenme hedeflerinizi hatırlatır
+                Reminds you of your learning goals every day
               </Text>
             </View>
             <Switch
@@ -234,7 +234,7 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
               style={styles.timeSelector}
               onPress={() => setShowTimePicker('reminder')}
             >
-              <Text style={styles.timeSelectorLabel}>Hatırlatma Saati</Text>
+              <Text style={styles.timeSelectorLabel}>Reminder Time</Text>
               <Text style={styles.timeSelectorValue}>
                 {formatTime(preferences.daily_reminder_time)}
               </Text>
@@ -244,13 +244,13 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
 
         {/* Progress Notifications */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>İlerleme Bildirimleri</Text>
+                      <Text style={styles.sectionTitle}>Progress Notifications</Text>
           
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Adım Tamamlama</Text>
+              <Text style={styles.settingTitle}>Step Completion</Text>
               <Text style={styles.settingDescription}>
-                Bir adımı tamamladığınızda bildirim alın
+                Get notified when you complete a step
               </Text>
             </View>
             <Switch
@@ -263,9 +263,9 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
 
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Seri Uyarısı</Text>
+              <Text style={styles.settingTitle}>Streak Warning</Text>
               <Text style={styles.settingDescription}>
-                Öğrenme serinizi kaybetme riski olduğunda uyarır
+                Warns you when you're at risk of losing your learning streak
               </Text>
             </View>
             <Switch
@@ -278,9 +278,9 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
 
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Haftalık İlerleme</Text>
+              <Text style={styles.settingTitle}>Weekly Progress</Text>
               <Text style={styles.settingDescription}>
-                Haftalık ilerleme raporları alın
+                Receive weekly progress reports
               </Text>
             </View>
             <Switch
@@ -294,17 +294,17 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
 
         {/* Do Not Disturb */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Rahatsız Etme Saatleri</Text>
-          <Text style={styles.sectionDescription}>
-            Bu saatler arasında bildirim almayacaksınız
-          </Text>
+                      <Text style={styles.sectionTitle}>Do Not Disturb Hours</Text>
+            <Text style={styles.sectionDescription}>
+              You won't receive notifications during these hours
+            </Text>
           
           <View style={styles.timeRangeContainer}>
             <TouchableOpacity
               style={styles.timeSelector}
               onPress={() => setShowTimePicker('dnd_start')}
             >
-              <Text style={styles.timeSelectorLabel}>Başlangıç</Text>
+              <Text style={styles.timeSelectorLabel}>Start</Text>
               <Text style={styles.timeSelectorValue}>
                 {formatTime(preferences.do_not_disturb_start)}
               </Text>
@@ -314,7 +314,7 @@ const NotificationSettingsScreen: React.FC<{ navigation?: any }> = ({ navigation
               style={styles.timeSelector}
               onPress={() => setShowTimePicker('dnd_end')}
             >
-              <Text style={styles.timeSelectorLabel}>Bitiş</Text>
+              <Text style={styles.timeSelectorLabel}>End</Text>
               <Text style={styles.timeSelectorValue}>
                 {formatTime(preferences.do_not_disturb_end)}
               </Text>

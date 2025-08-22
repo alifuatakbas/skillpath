@@ -25,7 +25,7 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
       const data = await getRoadmapProgress(roadmapId);
       setRoadmapData(data);
     } catch (error) {
-      Alert.alert('Hata', 'Roadmap detayları yüklenemedi');
+              Alert.alert('Error', 'Could not load roadmap details');
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
       // Reload data
       await loadRoadmapData();
     } catch (error) {
-      Alert.alert('Hata', 'Adım durumu güncellenemedi');
+              Alert.alert('Error', 'Could not update step status');
     }
   };
 
@@ -123,7 +123,7 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Roadmap yükleniyor...</Text>
+        <Text style={styles.loadingText}>Loading roadmap...</Text>
       </View>
     );
   }
@@ -131,7 +131,7 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
   if (!roadmapData) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Roadmap bulunamadı</Text>
+        <Text style={styles.errorText}>Roadmap not found</Text>
       </View>
     );
   }
@@ -153,9 +153,9 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
         {/* Progress Summary */}
         <View style={styles.progressSummary}>
           <View style={styles.progressInfo}>
-            <Text style={styles.progressLabel}>İlerleme</Text>
+            <Text style={styles.progressLabel}>Progress</Text>
             <Text style={styles.progressValue}>
-              {roadmapData.completed_steps}/{roadmapData.total_steps} adım
+              {roadmapData.completed_steps}/{roadmapData.total_steps} steps
             </Text>
           </View>
           
@@ -177,14 +177,14 @@ const RoadmapDetailScreen = ({ route, navigation }: { route: any; navigation: an
         {/* Next Step Highlight */}
         {roadmapData.next_step && (
           <View style={styles.nextStepContainer}>
-            <Text style={styles.nextStepTitle}>🎯 Sıradaki Adım</Text>
+            <Text style={styles.nextStepTitle}>🎯 Next Step</Text>
             <Text style={styles.nextStepText}>{roadmapData.next_step.title}</Text>
           </View>
         )}
 
         {/* Steps List */}
         <View style={styles.stepsContainer}>
-          <Text style={styles.stepsTitle}>Adımlar</Text>
+                      <Text style={styles.stepsTitle}>Steps</Text>
           {roadmapData.steps.map((step, index) => (
             <StepCard key={step.step_id} step={step} index={index} />
           ))}

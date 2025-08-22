@@ -60,11 +60,11 @@ export default function PomodoroScreen({ navigation }: Props) {
       setTimeLeft(25 * 60);
       setIsBreak(false);
       Alert.alert(
-        '⏰ Mola Bitti!',
-        'Çalışma zamanı başlıyor. Hazır mısın?',
+        '⏰ Break Finished!',
+        'Work time is starting. Are you ready?',
         [
-          { text: 'Başla', onPress: () => setIsRunning(true) },
-          { text: 'Daha Sonra', style: 'cancel' }
+          { text: 'Start', onPress: () => setIsRunning(true) },
+          { text: 'Later', style: 'cancel' }
         ]
       );
     } else {
@@ -79,11 +79,11 @@ export default function PomodoroScreen({ navigation }: Props) {
       await recordActivity();
       
       Alert.alert(
-        '🎉 Pomodoro Tamamlandı!',
-        'Tebrikler! 25 dakika odaklı çalışma tamamladın. Şimdi 5 dakika mola zamanı.',
+        '🎉 Pomodoro Completed!',
+        'Congratulations! You completed 25 minutes of focused work. Now it\'s 5 minutes break time.',
         [
-          { text: 'Molaya Başla', onPress: () => setIsRunning(true) },
-          { text: 'Daha Sonra', style: 'cancel' }
+          { text: 'Start Break', onPress: () => setIsRunning(true) },
+          { text: 'Later', style: 'cancel' }
         ]
       );
     }
@@ -104,11 +104,11 @@ export default function PomodoroScreen({ navigation }: Props) {
 
   const skipTimer = () => {
     Alert.alert(
-      '⏭️ Timer Atlama',
-      'Timer\'ı atlamak istediğinizden emin misiniz?',
+      '⏭️ Skip Timer',
+      'Are you sure you want to skip the timer?',
       [
-        { text: 'İptal', style: 'cancel' },
-        { text: 'Atla', onPress: handleTimerComplete }
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Skip', onPress: handleTimerComplete }
       ]
     );
   };
@@ -154,7 +154,7 @@ export default function PomodoroScreen({ navigation }: Props) {
               color="#fff" 
             />
             <Text style={styles.modeText}>
-              {isBreak ? 'Mola Zamanı' : 'Çalışma Zamanı'}
+              {isBreak ? 'Break Time' : 'Work Time'}
             </Text>
           </View>
 
@@ -178,7 +178,7 @@ export default function PomodoroScreen({ navigation }: Props) {
               onPress={resetTimer}
             >
               <Ionicons name="refresh" size={24} color="#fff" />
-              <Text style={styles.controlText}>Sıfırla</Text>
+              <Text style={styles.controlText}>Reset</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -226,12 +226,12 @@ export default function PomodoroScreen({ navigation }: Props) {
 
       {/* Instructions */}
       <View style={styles.instructionsContainer}>
-        <Text style={styles.instructionsTitle}>🎯 Pomodoro Tekniği</Text>
+        <Text style={styles.instructionsTitle}>🎯 Pomodoro Technique</Text>
         <Text style={styles.instructionsText}>
-          • 25 dakika odaklı çalışma{'\n'}
-          • 5 dakika kısa mola{'\n'}
-          • Her 4 pomodoro sonrası 15 dakika uzun mola{'\n'}
-          • Mola sırasında gözlerini dinlendir ve hareket et
+          • 25 minutes focused work{'\n'}
+          • 5 minutes short break{'\n'}
+          • 15 minutes long break after every 4 pomodoros{'\n'}
+          • Rest your eyes and move during breaks
         </Text>
       </View>
     </SafeAreaView>
