@@ -81,56 +81,12 @@ export default function CalendarScreen({ navigation }: Props) {
   const generateDailyGoals = () => {
     const selectedDateStr = selectedDate.toISOString().split('T')[0];
     
-    // Seçili gün için hedefleri yükle
-    const goals: DailyGoal[] = [
-      {
-        id: '1',
-        title: 'Pomodoro Tamamla',
-        completed: false,
-        type: 'pomodoro',
-        target: 2,
-        current: 0,
-        date: selectedDateStr,
-        isCustom: false,
-      },
-      {
-        id: '2',
-        title: 'Streak Devam Ettir',
-        completed: false,
-        type: 'streak',
-        target: 1,
-        current: gamificationData.currentStreak > 0 ? 1 : 0,
-        date: selectedDateStr,
-        isCustom: false,
-      },
-    ];
-    
-    // Kullanıcının özel hedeflerini ekle (burada gerçek veri olacak)
+    // Only user-added goals (no default goals)
     const customGoals: DailyGoal[] = [
-      // Örnek özel hedefler
-      {
-        id: 'custom_1',
-        title: 'React Native Öğren',
-        completed: false,
-        type: 'custom',
-        target: 60, // dakika
-        current: 0,
-        date: selectedDateStr,
-        isCustom: true,
-      },
-      {
-        id: 'custom_2',
-        title: 'Portfolio Güncelle',
-        completed: false,
-        type: 'custom',
-        target: 1,
-        current: 0,
-        date: selectedDateStr,
-        isCustom: true,
-      },
+      // User can add their own goals here
     ];
     
-    setDailyGoals([...goals, ...customGoals]);
+    setDailyGoals(customGoals);
   };
 
   const toggleGoal = async (goalId: string) => {
@@ -170,7 +126,7 @@ export default function CalendarScreen({ navigation }: Props) {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('tr-TR', { 
+    return date.toLocaleDateString('en-US', { 
       weekday: 'short',
       day: 'numeric'
     });
@@ -423,7 +379,7 @@ export default function CalendarScreen({ navigation }: Props) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Yeni Hedef Ekle</Text>
+              <Text style={styles.modalTitle}>Add New Goal</Text>
               <TouchableOpacity
                 onPress={() => setShowAddGoal(false)}
                 style={styles.closeButton}

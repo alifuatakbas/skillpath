@@ -332,7 +332,7 @@ export default function CommunityScreen({ navigation }: Props) {
             onPress={() => setSelectedFilter('latest')}
           >
             <Text style={[styles.filterText, selectedFilter === 'latest' && styles.activeFilterText]}>
-              En Yeni
+              Latest
             </Text>
           </TouchableOpacity>
           <TouchableOpacity

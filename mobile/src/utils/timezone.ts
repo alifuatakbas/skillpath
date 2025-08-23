@@ -17,6 +17,7 @@ export const detectTimezone = async (): Promise<TimezoneInfo> => {
     let timezone = Localization.timezone || 'UTC';
     let locale = Localization.locale || 'en-US';
     
+    console.log('Timezone detection:', {
       timezone,
       locale,
       locales: Localization.locales,

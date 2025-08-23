@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function PomodoroScreen({ navigation }: Props) {
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 dakika
+  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes
   const [isRunning, setIsRunning] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
@@ -55,7 +55,7 @@ export default function PomodoroScreen({ navigation }: Props) {
     setIsRunning(false);
     
     if (isBreak) {
-      // Mola bitti, çalışma moduna geç
+              // Break finished, switch to work mode
       setCompletedBreaks(prev => prev + 1);
       setTimeLeft(25 * 60);
       setIsBreak(false);
@@ -68,12 +68,12 @@ export default function PomodoroScreen({ navigation }: Props) {
         ]
       );
     } else {
-      // Çalışma bitti, mola moduna geç
+              // Work finished, switch to break mode
       setCompletedPomodoros(prev => prev + 1);
       setTimeLeft(5 * 60);
       setIsBreak(true);
       
-      // XP, çalışma dakikası ve aktivite kaydet
+              // Save XP, work minutes and activity
               await addXp(50, 'Pomodoro tamamladın! 🎯');
       await addStudyMinutes(25);
       await recordActivity();
@@ -197,7 +197,7 @@ export default function PomodoroScreen({ navigation }: Props) {
               onPress={skipTimer}
             >
               <Ionicons name="play-skip-forward" size={24} color="#fff" />
-              <Text style={styles.controlText}>Atla</Text>
+              <Text style={styles.controlText}>Skip</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -208,19 +208,19 @@ export default function PomodoroScreen({ navigation }: Props) {
         <View style={styles.statCard}>
           <Ionicons name="timer" size={24} color="#ff6b6b" />
           <Text style={styles.statValue}>{completedPomodoros}</Text>
-          <Text style={styles.statLabel}>Tamamlanan Pomodoro</Text>
+                      <Text style={styles.statLabel}>Completed Pomodoros</Text>
         </View>
         
         <View style={styles.statCard}>
           <Ionicons name="cafe" size={24} color="#4facfe" />
           <Text style={styles.statValue}>{completedBreaks}</Text>
-          <Text style={styles.statLabel}>Tamamlanan Mola</Text>
+                      <Text style={styles.statLabel}>Completed Breaks</Text>
         </View>
         
         <View style={styles.statCard}>
           <Ionicons name="time" size={24} color="#ffd700" />
           <Text style={styles.statValue}>{completedPomodoros * 25}</Text>
-          <Text style={styles.statLabel}>Toplam Dakika</Text>
+                      <Text style={styles.statLabel}>Total Minutes</Text>
         </View>
       </View>
 

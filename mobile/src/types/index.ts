@@ -28,6 +28,9 @@ export interface SocialLoginRequest {
   access_token: string;
   id_token?: string;
   user_name?: string;
+  email?: string;
+  display_name?: string;
+  photo_url?: string;
 }
 
 export interface RefreshTokenRequest {

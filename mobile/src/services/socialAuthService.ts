@@ -46,6 +46,7 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
       access_token: credential.identityToken || credential.authorizationCode || 'apple_auth_' + Date.now(),
       id_token: credential.identityToken || credential.authorizationCode || '',
       user_name: displayName, // Send user's real name
+      email: credential.email || undefined, // Send email if available
     });
     
 
@@ -57,14 +58,14 @@ export const signInWithApple = async (): Promise<SocialAuthResult> => {
   } catch (error: any) {
 
     
-    let errorMessage = 'Apple girişi başarısız';
+    let errorMessage = 'Apple sign-in failed';
     
     if (error.code === 'ERR_CANCELED') {
-      errorMessage = 'Apple girişi iptal edildi';
+      errorMessage = 'Apple sign-in was cancelled';
     } else if (error.code === 'ERR_INVALID_RESPONSE') {
-      errorMessage = 'Apple girişi geçersiz yanıt';
+      errorMessage = 'Apple sign-in invalid response';
     } else if (error.code === 'ERR_REQUEST_FAILED') {
-      errorMessage = 'Apple girişi istek başarısız';
+      errorMessage = 'Apple sign-in request failed';
     }
     
     return {

@@ -95,9 +95,9 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
       </View>
       
       <View style={styles.roadmapFooter}>
-        <Text style={styles.weeksText}>{roadmap.total_weeks} hafta</Text>
+        <Text style={styles.weeksText}>{roadmap.total_weeks} weeks</Text>
         <Text style={styles.dateText}>
-          {new Date(roadmap.created_at).toLocaleDateString('tr-TR')}
+          {new Date(roadmap.created_at).toLocaleDateString('en-US')}
         </Text>
       </View>
     </TouchableOpacity>

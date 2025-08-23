@@ -190,7 +190,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.quickStatCard}>
               <Ionicons name="star" size={24} color="#ffd700" />
               <Text style={styles.quickStatValue}>{gamificationData.longestStreak}</Text>
-              <Text style={styles.quickStatLabel}>En Uzun Streak</Text>
+              <Text style={styles.quickStatLabel}>Longest Streak</Text>
             </View>
             <View style={styles.quickStatCard}>
               <Ionicons name="trophy" size={24} color="#ff9a9e" />
@@ -259,17 +259,17 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{profile.gamification.longest_streak}</Text>
-              <Text style={styles.statLabel}>En Uzun Streak</Text>
+              <Text style={styles.statLabel}>Longest Streak</Text>
               <Text style={styles.statIcon}>🏅</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{profile.total_roadmaps}</Text>
-              <Text style={styles.statLabel}>Toplam Roadmap</Text>
+              <Text style={styles.statLabel}>Total Roadmaps</Text>
               <Text style={styles.statIcon}>🗺️</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{profile.completed_roadmaps}</Text>
-              <Text style={styles.statLabel}>Tamamlanan</Text>
+              <Text style={styles.statLabel}>Completed</Text>
               <Text style={styles.statIcon}>✅</Text>
             </View>
             <View style={styles.statCard}>
