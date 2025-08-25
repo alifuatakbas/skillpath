@@ -84,7 +84,7 @@ const RoadmapGenerationScreen = ({ navigation }: { navigation: any }) => {
 
           {/* Current Level */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Mevcut Seviyeniz</Text>
+            <Text style={styles.label}>Current Level</Text>
             <View style={styles.levelContainer}>
               {levels.map((level) => (
                 <TouchableOpacity

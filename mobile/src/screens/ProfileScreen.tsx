@@ -51,7 +51,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
             daily_xp_today: 0,
             current_streak: gamificationData.currentStreak,
             longest_streak: gamificationData.longestStreak,
-            level_name: `Seviye ${gamificationData.currentLevel}`,
+            level_name: `Level ${gamificationData.currentLevel}`,
             next_level_xp: gamificationData.currentLevel * 100,
             achievements_count: gamificationData.achievements.filter(a => a.isUnlocked).length,
           },
@@ -211,7 +211,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Level & XP Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎮 Seviye & XP</Text>
+          <Text style={styles.sectionTitle}>🎮 Level & XP</Text>
           <View style={styles.levelCard}>
             <View style={styles.levelHeader}>
               <Text style={styles.levelIcon}>
@@ -219,7 +219,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
               </Text>
               <View style={styles.levelInfo}>
                 <Text style={styles.levelText}>
-                  Seviye {profile.gamification.current_level} - {profile.gamification.level_name}
+                  Level {profile.gamification.current_level} - {profile.gamification.level_name}
                 </Text>
                 <Text style={styles.xpText}>
                   {profile.gamification.total_xp} XP
@@ -230,7 +230,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
             {profile.gamification.next_level_xp > 0 && (
               <View style={styles.progressContainer}>
                 <Text style={styles.progressText}>
-                  Sonraki seviyeye: {profile.gamification.next_level_xp - profile.gamification.total_xp} XP
+                  To next level: {profile.gamification.next_level_xp - profile.gamification.total_xp} XP
                 </Text>
                 <View style={styles.progressBar}>
                   <View

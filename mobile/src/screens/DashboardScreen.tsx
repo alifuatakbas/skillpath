@@ -156,13 +156,13 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
           <View style={styles.statsContainer}>
             <View style={styles.statsRow}>
               <StatCard
-                title="Toplam Roadmap"
+                title="Total Roadmaps"
                 value={stats.total_roadmaps}
                 icon="map-outline"
                 color="#2196F3"
               />
               <StatCard
-                title="Aktif Roadmap"
+                title="Active Roadmaps"
                 value={stats.active_roadmaps}
                 icon="play-circle-outline"
                 color="#4CAF50"
@@ -171,7 +171,7 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
             
             <View style={styles.statsRow}>
               <StatCard
-                title="Tamamlanan"
+                title="Completed"
                 value={stats.completed_roadmaps}
                 icon="checkmark-circle-outline"
                 color="#8BC34A"
@@ -207,13 +207,13 @@ const DashboardScreen = ({ navigation }: { navigation: any }) => {
         {/* Roadmaps Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Roadmap'lerim</Text>
+            <Text style={styles.sectionTitle}>My Roadmaps</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('RoadmapGeneration')}
               style={styles.addButton}
             >
               <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.addButtonText}>Yeni</Text>
+              <Text style={styles.addButtonText}>New</Text>
             </TouchableOpacity>
           </View>
 

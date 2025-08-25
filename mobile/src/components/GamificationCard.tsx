@@ -38,7 +38,7 @@ export const GamificationCard: React.FC<GamificationCardProps> = ({
         >
           <View style={styles.compactContent}>
             <View style={styles.compactLeft}>
-              <Text style={styles.compactLevel}>Seviye {currentLevel}</Text>
+              <Text style={styles.compactLevel}>Level {currentLevel}</Text>
               <Text style={styles.compactXp}>{totalXp} XP</Text>
             </View>
             <View style={styles.compactRight}>
@@ -71,12 +71,12 @@ export const GamificationCard: React.FC<GamificationCardProps> = ({
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{currentLevel}</Text>
-            <Text style={styles.statLabel}>Seviye</Text>
+            <Text style={styles.statLabel}>Level</Text>
           </View>
           
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{totalXp}</Text>
-            <Text style={styles.statLabel}>Toplam XP</Text>
+            <Text style={styles.statLabel}>Total XP</Text>
           </View>
           
           <View style={styles.statItem}>
@@ -84,14 +84,14 @@ export const GamificationCard: React.FC<GamificationCardProps> = ({
               <Ionicons name="flame" size={20} color="#ff6b6b" />
               <Text style={styles.streakValue}>{currentStreak}</Text>
             </View>
-            <Text style={styles.statLabel}>Günlük Streak</Text>
+            <Text style={styles.statLabel}>Daily Streak</Text>
           </View>
         </View>
         
         <View style={styles.progressContainer}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressText}>
-              Sonraki Seviye: {xpInCurrentLevel}/{xpForNextLevel} XP
+              Next Level: {xpInCurrentLevel}/{xpForNextLevel} XP
             </Text>
             <Text style={styles.progressPercent}>{Math.round(progressToNextLevel)}%</Text>
           </View>

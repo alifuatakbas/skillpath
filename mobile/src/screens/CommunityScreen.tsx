@@ -285,7 +285,7 @@ export default function CommunityScreen({ navigation }: Props) {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Topluluk</Text>
+        <Text style={styles.headerTitle}>Community</Text>
         <TouchableOpacity style={styles.createButton} onPress={handleCreatePost}>
           <Ionicons name="add-circle" size={24} color="#ffffff" />
         </TouchableOpacity>
