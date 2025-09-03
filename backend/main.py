@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
@@ -682,26 +683,80 @@ async def startup_event():
 async def root():
     return {"message": "SkillPath API'sine Hoş Geldiniz!", "version": "1.0.0"}
 
-@app.get("/support")
+@app.get("/support", response_class=HTMLResponse)
 async def support():
-    return {
-        "app_name": "SkillPath",
-        "version": "1.1.0",
-        "support_email": "akbasalifuat@gmail.com",
-        "website": "https://skillpath.com",
-        "description": "SkillPath - Modern learning platform. Create roadmaps, work with Pomodoro technique and learn with the community.",
-        "features": [
-            "Personalized learning roadmaps",
-            "Pomodoro timer",
-            "Community support",
-            "Progress tracking",
-            "Premium features"
-        ],
-        "contact": {
-            "email": "akbasalifuat@gmail.com",
-            "response_time": "24 hours"
-        }
-    }
+    """Kullanıcı destek sayfası (HTML). App Review için görsel ve işlevsel bir sayfa döner."""
+    html = """
+    <!doctype html>
+    <html lang=\"en\">
+    <head>
+      <meta charset=\"utf-8\" />
+      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+      <title>SkillPath • Support</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Helvetica, Arial, sans-serif; margin:0; background:#0f172a; color:#e2e8f0; }
+        .container { max-width: 900px; margin: 0 auto; padding: 32px 20px; }
+        .card { background:#111827; border:1px solid #1f2937; border-radius:14px; padding:24px; margin-bottom:20px; }
+        h1 { font-size:28px; margin:0 0 12px; }
+        h2 { font-size:20px; margin:24px 0 12px; }
+        a { color:#60a5fa; text-decoration:none; }
+        a:hover { text-decoration:underline; }
+        .grid { display:grid; grid-template-columns: 1fr; gap:16px; }
+        @media (min-width: 700px) { .grid { grid-template-columns: 1fr 1fr; } }
+        .btn { display:inline-block; padding:10px 14px; background:#2563eb; border-radius:10px; color:#fff; font-weight:600; }
+        ul { margin:8px 0 0 18px; }
+        li { margin:6px 0; }
+        .muted { color:#94a3b8; font-size:14px; }
+      </style>
+    </head>
+    <body>
+      <div class=\"container\">
+        <div class=\"card\">
+          <h1>SkillPath Support</h1>
+          <p class=\"muted\">Need help? We are here for you. You can reach us via email or check the FAQ below.</p>
+          <p>
+            <strong>Contact:</strong> <a href=\"mailto:akbasalifuat@gmail.com\">akbasalifuat@gmail.com</a>
+            &nbsp;·&nbsp; Average response time: <strong>within 24 hours</strong>
+          </p>
+          <p>
+            <a class=\"btn\" href=\"mailto:akbasalifuat@gmail.com?subject=SkillPath%20Support%20Request\">Email Support</a>
+          </p>
+        </div>
+
+        <div class=\"grid\">
+          <div class=\"card\">
+            <h2>Frequently Asked Questions (FAQ)</h2>
+            <ul>
+              <li><strong>How do I delete my account?</strong><br/>In the app: Settings → Profile → bottom of the page → <em>Delete Account</em>. This permanently removes your data.</li>
+              <li><strong>How do I manage notifications?</strong><br/>Settings → Notifications. You can enable/disable daily reminders and more.</li>
+              <li><strong>How do I start a new roadmap?</strong><br/>Dashboard → Create Roadmap. Choose your skill and target schedule.</li>
+              <li><strong>Do you offer refunds?</strong><br/>For App Store purchases, please request a refund via Apple Support policies.</li>
+            </ul>
+          </div>
+
+          <div class=\"card\">
+            <h2>Support Policy</h2>
+            <ul>
+              <li>We aim to respond to all requests within 24 hours.</li>
+              <li>For billing issues, include your Apple receipt or transaction ID.</li>
+              <li>For bug reports, add steps to reproduce and screenshots if possible.</li>
+              <li>Privacy requests (export/delete data) can be initiated from the app or via email.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class=\"card\">
+          <h2>Legal</h2>
+          <p class=\"muted\">By using SkillPath, you agree to our Privacy Policy. For privacy questions, contact us anytime.</p>
+          <p>
+            Privacy: <a href=\"/privacy\">/privacy</a>
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
 
 @app.get("/privacy")
 async def privacy():
