@@ -2253,6 +2253,30 @@ async def send_daily_notifications(
         print(f"Send daily notifications error: {e}")
         raise HTTPException(status_code=500, detail=f"Send daily notifications error: {str(e)}")
 
+# Hesap Silme Endpoint'i (Apple gereksinimi)
+@app.delete("/api/user/delete-account")
+async def delete_account(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Kullanıcının hesabını ve ilişkili verilerini kalıcı olarak siler."""
+    try:
+        # İlişkili verileri sil
+        db.query(PushToken).filter(PushToken.user_id == current_user.id).delete()
+        db.query(NotificationPreference).filter(NotificationPreference.user_id == current_user.id).delete()
+        db.query(Notification).filter(Notification.user_id == current_user.id).delete()
+        db.query(CommunityComment).filter(CommunityComment.user_id == current_user.id).delete()
+        db.query(PostLike).filter(PostLike.user_id == current_user.id).delete()
+        db.query(CommunityPost).filter(CommunityPost.user_id == current_user.id).delete()
+        db.query(UserProgress).filter(UserProgress.user_id == current_user.id).delete()
+        db.query(RoadmapStep).filter(RoadmapStep.roadmap_id.in_(db.query(Roadmap.id).filter(Roadmap.user_id == current_user.id))).delete(synchronize_session=False)
+        db.query(Roadmap).filter(Roadmap.user_id == current_user.id).delete()
+
+        # Kullanıcıyı sil
+        db.query(User).filter(User.id == current_user.id).delete()
+        db.commit()
+        return {"success": True, "message": "Account deleted"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Account deletion failed: {str(e)}")
+
 async def get_daily_reminder_internal(user: User, db: Session):
     """Günlük hatırlatma oluştur (internal kullanım için)"""
     # Kullanıcının aktif roadmap'lerini getir
