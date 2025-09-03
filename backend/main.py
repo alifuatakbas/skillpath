@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
@@ -760,19 +760,9 @@ async def support():
 
 @app.get("/privacy")
 async def privacy():
-    return {
-        "app_name": "SkillPath",
-        "privacy_policy": "Last updated: December 2024",
-        "data_collection": "We collect minimal data necessary for app functionality",
-        "data_usage": "Data is used only for app features and user experience",
-        "data_sharing": "We do not sell or share personal data with third parties",
-        "user_rights": "Users can request data deletion at any time",
-        "contact": {
-            "email": "akbasalifuat@gmail.com",
-            "purpose": "Privacy policy questions"
-        },
-        "full_policy": "This is a simplified privacy policy. For detailed information, contact us."
-    }
+    """Privacy Policy - external hosted TermsFeed page."""
+    termsfeed_url = "https://www.termsfeed.com/live/82fe58a6-62de-48ca-a408-1d3628d6d233"
+    return RedirectResponse(termsfeed_url, status_code=307)
 
 @app.get("/api/courses", response_model=List[CourseResponse])
 async def get_courses(db: Session = Depends(get_db)):
