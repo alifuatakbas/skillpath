@@ -135,6 +135,12 @@ class ApiClient {
       body: data ? JSON.stringify(data) : undefined,
     });
   }
+
+  async delete<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+    });
+  }
 }
 
 const apiClient = new ApiClient();
@@ -156,6 +162,22 @@ export const register = async (userData: UserCreate): Promise<AuthResponse> => {
 
 export const logout = async (): Promise<void> => {
   await TokenManager.removeToken();
+};
+
+// Account API
+export const deleteAccount = async (): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const res = await apiClient.delete<{ success: boolean; message?: string }>(
+      '/api/user/delete-account'
+    );
+    // Local storage temizle
+    await TokenManager.removeToken();
+    return res;
+  } catch (err) {
+    // Yine de local verileri temizleyelim, çağrı başarısız olsa bile sonraki adım için hazır olsun
+    await TokenManager.removeToken();
+    throw err;
+  }
 };
 
 // Skill API

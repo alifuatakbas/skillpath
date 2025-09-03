@@ -1,6 +1,6 @@
 {
   "name": "skillpath-mobile",
-      "version": "1.4.0",
+  "version": "1.4.0",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -17,12 +17,10 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/datetimepicker": "8.4.1",
-
     "@react-navigation/native": "^7.1.16",
     "@react-navigation/stack": "^7.4.4",
-    "expo": "53.0.20",
+    "expo": "53.0.22",
     "expo-apple-authentication": "~7.2.4",
-
     "expo-build-properties": "^0.14.8",
     "expo-constants": "~17.1.7",
     "expo-crypto": "^14.1.5",
@@ -35,14 +33,13 @@
     "expo-notifications": "~0.31.4",
     "expo-status-bar": "~2.2.3",
     "expo-updates": "~0.28.17",
-
     "react": "19.0.0",
     "react-native": "0.79.5",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-iap": "^13.0.4",
     "react-native-localize": "^3.4.1",
     "react-native-safe-area-context": "^5.4.0",
-    "react-native-screens": "^4.13.1"
+    "react-native-screens": "~4.11.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

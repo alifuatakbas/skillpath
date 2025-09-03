@@ -243,8 +243,8 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   const premiumFeatures = [
     {
       icon: 'infinite-outline',
-      title: 'Sınırsız Roadmap',
-      description: 'İstediğiniz kadar öğrenme yolu oluşturun',
+      title: 'Infinite Roadmap',
+      description: 'Create as many learning paths as you want',
     },
     {
       icon: 'sparkles-outline',

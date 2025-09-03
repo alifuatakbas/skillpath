@@ -8,10 +8,11 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { TokenManager } from '../services/api';
+import { TokenManager, deleteAccount } from '../services/api';
 import { UserProfile } from '../types';
 import { GamificationCard } from '../components/GamificationCard';
 import { AchievementsList } from '../components/AchievementsList';
@@ -290,6 +291,55 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
                       <Text style={styles.sectionTitle}>🏆 Achievement Badges</Text>
           <AchievementsList compact />
         </View>
+
+        {/* Delete Account */}
+        {profile.is_own_profile && (
+          <View style={{ marginBottom: 40 }}>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => {
+                Alert.alert(
+                  'Delete Account',
+                  'This action is permanent. Are you sure you want to delete your account and all associated data?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Yes, Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          setLoading(true);
+                          await deleteAccount();
+                          Alert.alert('Account deleted', 'Your account has been deleted successfully.');
+                          navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+                        } catch (e) {
+                          Alert.alert(
+                            'Delete failed',
+                            'We could not complete deletion in-app. Would you like to open the web deletion page?',
+                            [
+                              {
+                                text: 'Open Web Page',
+                                onPress: () => {
+                                  Linking.openURL('https://skillpath-production.up.railway.app/delete-account');
+                                },
+                              },
+                              { text: 'Cancel' },
+                            ]
+                          );
+                        } finally {
+                          setLoading(false);
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <Ionicons name="trash" size={18} color="#fff" />
+              <Text style={styles.deleteButtonText}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </LinearGradient>
   );
@@ -564,6 +614,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e11d48',
+    borderRadius: 10,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });
 
