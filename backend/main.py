@@ -542,6 +542,35 @@ class PremiumPurchaseResponse(BaseModel):
     message: str
     expires_at: Optional[str] = None
 
+# Apple IAP receipt validation helper
+def _validate_apple_receipt(receipt_data: str) -> dict:
+    """Validate Apple IAP receipt with production-first then sandbox fallback.
+
+    Apple returns status 21007 when a sandbox receipt is sent to production.
+    """
+    production_url = "https://buy.itunes.apple.com/verifyReceipt"
+    sandbox_url = "https://sandbox.itunes.apple.com/verifyReceipt"
+    shared_secret = os.environ.get("APPLE_IAP_SHARED_SECRET", "")
+
+    payload = {"receipt-data": receipt_data}
+    if shared_secret:
+        payload["password"] = shared_secret
+
+    try:
+        prod_resp = requests.post(production_url, json=payload, timeout=10)
+        prod_json = prod_resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Receipt validation network error: {e}")
+
+    if prod_json.get("status") == 21007:
+        try:
+            sand_resp = requests.post(sandbox_url, json=payload, timeout=10)
+            return sand_resp.json()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Sandbox validation failed: {e}")
+
+    return prod_json
+
 class NotificationResponse(BaseModel):
     id: int
     title: str
@@ -763,6 +792,86 @@ async def privacy():
     """Privacy Policy - external hosted TermsFeed page."""
     termsfeed_url = "https://www.termsfeed.com/live/82fe58a6-62de-48ca-a408-1d3628d6d233"
     return RedirectResponse(termsfeed_url, status_code=307)
+
+@app.get("/terms")
+async def terms_of_use():
+    """Terms of Use (EULA) page served by the backend for App Store review requirements."""
+    html = """
+    <!doctype html>
+    <html lang=\"en\">
+    <head>
+      <meta charset=\"utf-8\" />
+      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+      <title>SkillPath • Terms of Use (EULA)</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Helvetica, Arial, sans-serif; margin:0; background:#0f172a; color:#e2e8f0; }
+        .container { max-width: 900px; margin: 0 auto; padding: 32px 20px; }
+        .card { background:#111827; border:1px solid #1f2937; border-radius:14px; padding:24px; margin-bottom:20px; }
+        a { color:#60a5fa; }
+        h1, h2 { color:#fff; }
+        p, li { color:#cbd5e1; line-height: 1.6; }
+      </style>
+    </head>
+    <body>
+      <div class=\"container\">
+        <h1>Terms of Use (EULA)</h1>
+        <div class=\"card\">
+          <p>By downloading or using SkillPath, these terms will automatically apply to you. Please read them carefully before using the app.</p>
+          <ul>
+            <li>Subscriptions are auto-renewing unless cancelled at least 24 hours before the end of the current period in your App Store account settings.</li>
+            <li>Payment will be charged to your Apple ID account at confirmation of purchase.</li>
+            <li>Any unused portion of a free trial period, if offered, will be forfeited when you purchase a subscription.</li>
+          </ul>
+        </div>
+        <div class=\"card\">
+          <h2>Legal</h2>
+          <p>Privacy Policy: <a href=\"/privacy\">/privacy</a></p>
+          <p>Contact: support@skillpath.app</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+@app.get("/delete-account")
+async def delete_account_page():
+    """Web page describing how to delete account and directing users to the in-app flow."""
+    html = """
+    <!doctype html>
+    <html lang=\"en\">
+    <head>
+      <meta charset=\"utf-8\" />
+      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+      <title>SkillPath • Delete Account</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Helvetica, Arial, sans-serif; margin:0; background:#0f172a; color:#e2e8f0; }
+        .container { max-width: 800px; margin: 0 auto; padding: 32px 20px; }
+        .card { background:#111827; border:1px solid #1f2937; border-radius:14px; padding:24px; margin-bottom:20px; }
+        a { color:#60a5fa; }
+        h1, h2 { color:#fff; }
+        p, li { color:#cbd5e1; line-height: 1.6; }
+        .btn { display:inline-block; background:#ef4444; color:#fff; padding:12px 16px; border-radius:10px; text-decoration:none; }
+      </style>
+    </head>
+    <body>
+      <div class=\"container\">
+        <h1>Delete Your Account</h1>
+        <div class=\"card\">
+          <p>You can permanently delete your SkillPath account and associated data directly from within the app:</p>
+          <ol>
+            <li>Open the SkillPath app</li>
+            <li>Go to Profile → scroll to bottom</li>
+            <li>Tap “Delete Account” and confirm</li>
+          </ol>
+          <p>If you cannot access the app, contact us from your registered email and we’ll process the deletion securely.</p>
+          <p><a class=\"btn\" href=\"mailto:support@skillpath.app?subject=Account%20Deletion%20Request\">Contact Support</a></p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
 
 @app.get("/api/courses", response_model=List[CourseResponse])
 async def get_courses(db: Session = Depends(get_db)):
@@ -2599,9 +2708,11 @@ async def start_trial(
         if not request.transaction_id or not request.receipt:
             raise HTTPException(status_code=400, detail="Apple transaction ID and receipt required")
         
-        # Receipt doğrulaması burada yapılabilir
-        # Şimdilik basit kontrol yapıyoruz
-        print(f"Apple receipt validation: transaction_id={request.transaction_id}")
+        # Apple receipt doğrulaması
+        validation = _validate_apple_receipt(request.receipt)
+        status = validation.get("status")
+        if status != 0:
+            raise HTTPException(status_code=400, detail=f"Receipt invalid (status {status})")
         
         # Trial başlat
         trial_start = datetime.utcnow()
@@ -2630,6 +2741,15 @@ async def purchase_premium(
 ):
     """Premium abonelik satın al"""
     try:
+        # Apple receipt doğrulaması (iOS için)
+        if (request.platform or "").lower() == "ios":
+            if not request.receipt:
+                raise HTTPException(status_code=400, detail="Missing Apple receipt")
+            validation = _validate_apple_receipt(request.receipt)
+            status = validation.get("status")
+            if status != 0:
+                raise HTTPException(status_code=400, detail=f"Receipt invalid (status {status})")
+
         # Product ID'ye göre süre hesapla
         if "monthly" in request.product_id:
             expires_at = datetime.utcnow() + timedelta(days=30)

@@ -313,9 +313,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
                           Alert.alert('Account deleted', 'Your account has been deleted successfully.');
                           navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
                         } catch (e) {
+                          const message = e instanceof Error ? e.message : String(e);
                           Alert.alert(
                             'Delete failed',
-                            'We could not complete deletion in-app. Would you like to open the web deletion page?',
+                            `We could not complete deletion in-app. Error: ${message}`,
                             [
                               {
                                 text: 'Open Web Page',

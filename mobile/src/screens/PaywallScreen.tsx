@@ -412,17 +412,29 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
           </TouchableOpacity>
           
           <View style={styles.footerLinks}>
-            <TouchableOpacity>
-              <Text style={styles.footerLink}>Kullanım Koşulları</Text>
+            <TouchableOpacity onPress={() => {
+              import('../config/environment').then(({ AppConfig }) => {
+                const url = `${AppConfig.API_BASE_URL}/terms`;
+                const { Linking } = require('react-native');
+                Linking.openURL(url);
+              });
+            }}>
+              <Text style={styles.footerLink}>Terms of Use</Text>
             </TouchableOpacity>
             <Text style={styles.footerSeparator}> • </Text>
-            <TouchableOpacity>
-              <Text style={styles.footerLink}>Gizlilik Politikası</Text>
+            <TouchableOpacity onPress={() => {
+              import('../config/environment').then(({ AppConfig }) => {
+                const url = `${AppConfig.API_BASE_URL}/privacy`;
+                const { Linking } = require('react-native');
+                Linking.openURL(url);
+              });
+            }}>
+              <Text style={styles.footerLink}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
           
           <Text style={styles.footerNote}>
-            Abonelik otomatik olarak yenilenir. İptal etmek için App Store veya Google Play Store ayarlarından yapabilirsiniz.
+            Subscriptions renew automatically. You can cancel anytime in your App Store or Google Play settings.
           </Text>
         </View>
       </ScrollView>
