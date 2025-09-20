@@ -2851,11 +2851,19 @@ async def verify_ios_purchase(
     db: Session = Depends(get_db)
 ):
     """Unified IAP verification endpoint"""
+    print(f"=== IAP VERIFY REQUEST ===")
+    print(f"Platform: {req.platform}")
+    print(f"Receipt length: {len(req.receipt) if req.receipt else 0}")
+    print(f"Receipt preview: {req.receipt[:50] if req.receipt else 'None'}...")
+    print(f"SHARED_SECRET exists: {bool(os.getenv('APPLE_SHARED_SECRET'))}")
+    
     if (req.platform or "").lower() != "ios":
         raise HTTPException(status_code=400, detail="Invalid platform")
 
     try:
         data = await validate_apple_receipt(req.receipt)
+        print(f"Apple validation result: {data}")
+        
         status = data.get("status")
         if status != 0:
             return VerifyResponse(success=False, message=f"Apple status={status}")

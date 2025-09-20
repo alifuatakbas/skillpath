@@ -98,8 +98,19 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
       // Purchase başarılıysa backend'e gönder
       if (purchase && purchase.transactionId) {
-        // App-level receipt al
-        const appReceipt = await getReceiptIOS();
+        // App-level receipt al - farklı yöntemler dene
+        let appReceipt = await getReceiptIOS();
+        console.log('getReceiptIOS result:', appReceipt?.length);
+        
+        // Eğer getReceiptIOS çalışmazsa, purchase'tan al
+        if (!appReceipt && purchase.transactionReceipt) {
+          appReceipt = purchase.transactionReceipt;
+          console.log('Using purchase.transactionReceipt:', appReceipt?.length);
+        }
+        
+        console.log('Final receipt length:', appReceipt?.length);
+        console.log('Receipt preview:', appReceipt?.substring(0, 50));
+        
         if (!appReceipt) {
           Alert.alert('Error', 'No App Store receipt found.');
           setPurchasing(false);
