@@ -78,11 +78,13 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   }, [connected, requestProducts]);
 
   useEffect(() => {
-  }, [products]);
+    // Purchase history'yi kontrol et ve aktif abonelikleri restore et
+    // Not: expo-iap'te purchaseHistory hook'u yok, restore butonuna tıklanınca çalışır
+  }, []);
 
   const handleStartTrial = async () => {
     if (!selectedPlan) {
-              Alert.alert('Error', 'Please select a plan');
+      Alert.alert('Error', 'Please select a plan');
       return;
     }
 
@@ -91,73 +93,17 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
       const selectedPlanData = plans.find(plan => plan.productId === selectedPlan);
       
       if (selectedPlanData) {
-        
         // expo-iap ile satın alma işlemini başlat
         const purchase = await requestPurchase({
           request: { sku: selectedPlan },
           type: 'subs'
         } as any);
 
-
-        // Eğer mevcut satın alma varsa, onu kullanma
-        if (purchase && purchase.ownershipType === 'PURCHASED') {
-          Alert.alert('Debug', 'Existing purchase found! This is why Apple screen didn\'t open.');
-          // Mevcut satın almayı kullan
-          if (purchase.transactionId) {
-            // Backend'e trial başlatma isteği gönder
-            const token = await AsyncStorage.getItem('skillpath_token');
-            const { AppConfig } = await import('../config/environment');
-            
-            
-            const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/start-trial`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                product_id: selectedPlan,
-                transaction_id: purchase.transactionId,
-                receipt: purchase.transactionReceipt,
-              }),
-            });
-
-            if (response.ok) {
-              
-              // Premium durumunu yenile - bu trial'ı aktif edecek
-              await refreshSubscription();
-              
-              Alert.alert(
-                'Trial Started! 🎉',
-                `Your 3-day free trial has started. You will be subscribed to the ${selectedPlanData.title} plan.`,
-                [
-                  {
-                    text: 'Great!',
-                    onPress: () => navigation.goBack(),
-                  },
-                ]
-              );
-            } else {
-              const errorData = await response.text();
-              Alert.alert('Error', 'Could not start trial. Please try again.');
-            }
-          }
-          return;
-        }
-
-        // YENİ: Apple'dan onay alındıktan sonra backend'e gönder
+        // Purchase başarılıysa backend'e gönder
         if (purchase && purchase.transactionId) {
-          
-          // Receipt'i doğrula
-          try {
-            const validationResult = await validateReceipt(purchase.transactionId);
-          } catch (validationError) {
-          }
-          
           // Backend'e trial başlatma isteği gönder
           const token = await AsyncStorage.getItem('skillpath_token');
           const { AppConfig } = await import('../config/environment');
-          
           
           const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/start-trial`, {
             method: 'POST',
@@ -173,7 +119,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
           });
 
           if (response.ok) {
-            
             // Premium durumunu yenile
             await refreshSubscription();
             
@@ -198,7 +143,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
         Alert.alert('Error', 'Selected plan not found.');
       }
     } catch (error: any) {
-      
       // Kullanıcı iptal ettiyse farklı mesaj göster
       if (error?.message?.includes('cancel') || error?.message?.includes('user')) {
         Alert.alert('Cancelled', 'Purchase was cancelled.');
@@ -212,12 +156,24 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
   const handleRestore = async () => {
     try {
-      // Basit geri yükleme simülasyonu
-      Alert.alert(
-        'Info',
-        'No subscription found to restore. Please purchase a new subscription.',
-        [{ text: 'OK' }]
-      );
+      // Gerçek restore purchases implementasyonu
+      const token = await AsyncStorage.getItem('skillpath_token');
+      const { AppConfig } = await import('../config/environment');
+      
+      const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/restore`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        await refreshSubscription();
+        Alert.alert('Success', 'Purchases restored successfully!');
+      } else {
+        Alert.alert('Info', 'No previous purchases found to restore.');
+      }
     } catch (error) {
       Alert.alert('Error', 'Subscription restore failed');
     }
@@ -400,7 +356,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
             {purchasing ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.purchaseButtonText}>Trial Başlat</Text>
+              <Text style={styles.purchaseButtonText}>Start Free Trial</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -408,7 +364,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
         {/* Footer */}
         <View style={styles.footer}>
           <TouchableOpacity onPress={handleRestore}>
-            <Text style={styles.footerLink}>Satın Alımları Geri Yükle</Text>
+            <Text style={styles.footerLink}>Restore Purchases</Text>
           </TouchableOpacity>
           
           <View style={styles.footerLinks}>
