@@ -292,6 +292,21 @@ const ProfileScreen: React.FC<Props> = ({ navigation, route }) => {
           <AchievementsList compact />
         </View>
 
+        {/* Legal Section */}
+        {profile.is_own_profile && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>⚖️ Legal</Text>
+            <TouchableOpacity
+              style={styles.legalButton}
+              onPress={() => navigation.navigate('Legal')}
+            >
+              <Ionicons name="document-text" size={20} color="#667eea" />
+              <Text style={styles.legalButtonText}>Legal Information</Text>
+              <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Delete Account */}
         {profile.is_own_profile && (
           <View style={{ marginBottom: 40 }}>
@@ -630,6 +645,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  legalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  legalButtonText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginLeft: 12,
   },
 });
 

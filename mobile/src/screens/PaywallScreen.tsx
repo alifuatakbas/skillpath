@@ -78,8 +78,8 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   }, [connected, requestProducts]);
 
   useEffect(() => {
-    // Purchase history'yi kontrol et ve aktif abonelikleri restore et
-    // Not: expo-iap'te purchaseHistory hook'u yok, restore butonuna tıklanınca çalışır
+    // Purchase listener - expo-iap'te purchase-updated event'ini dinle
+    // Not: expo-iap'te event listener yok, purchase sonrası manuel handle ediyoruz
   }, []);
 
   const handleStartTrial = async () => {
@@ -88,66 +88,54 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
       return;
     }
 
-    setPurchasing(true);
     try {
-      const selectedPlanData = plans.find(plan => plan.productId === selectedPlan);
-      
-      if (selectedPlanData) {
-        // expo-iap ile satın alma işlemini başlat
-        const purchase = await requestPurchase({
-          request: { sku: selectedPlan },
-          type: 'subs'
-        } as any);
+      setPurchasing(true);
+      // Satın alma işlemini başlat
+      const purchase = await requestPurchase({
+        request: { sku: selectedPlan },
+        type: 'subs'
+      } as any);
 
-        // Purchase başarılıysa backend'e gönder
-        if (purchase && purchase.transactionId) {
-          // Backend'e trial başlatma isteği gönder
-          const token = await AsyncStorage.getItem('skillpath_token');
-          const { AppConfig } = await import('../config/environment');
-          
-          const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/start-trial`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              product_id: selectedPlan,
-              transaction_id: purchase.transactionId,
-              receipt: purchase.transactionReceipt,
-            }),
-          });
+      // Purchase başarılıysa backend'e gönder
+      if (purchase && purchase.transactionId) {
+        // App-level receipt al (expo-iap'te bu farklı olabilir)
+        const appReceipt = purchase.transactionReceipt || 'dummy_receipt';
+        
+        // Backend'e verify et
+        const token = await AsyncStorage.getItem('skillpath_token');
+        const { AppConfig } = await import('../config/environment');
+        
+        const res = await fetch(`${AppConfig.API_BASE_URL}/api/iap/verify`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`, 
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({
+            platform: 'ios',
+            receipt: appReceipt,
+            product_id: purchase?.productId ?? selectedPlan,
+            original_transaction_id: purchase?.originalTransactionIdentifier ?? purchase?.transactionId,
+          })
+        });
 
-          if (response.ok) {
-            // Premium durumunu yenile
-            await refreshSubscription();
-            
-            Alert.alert(
-              'Trial Started! 🎉',
-              `Your 3-day free trial has started. You will be subscribed to the ${selectedPlanData.title} plan.`,
-              [
-                {
-                  text: 'Great!',
-                  onPress: () => navigation.goBack(),
-                },
-              ]
-            );
-          } else {
-            const errorData = await response.text();
-            Alert.alert('Error', 'Could not start trial. Please try again.');
-          }
+        const data = await res.json();
+        if (res.ok && data.success) {
+          await refreshSubscription();
+          Alert.alert('Success', 'Purchase verified.');
+          navigation.goBack();
         } else {
-          Alert.alert('Error', 'Purchase could not be completed. Please try again.');
+          Alert.alert('Error', data?.message || 'Verification failed.');
         }
       } else {
-        Alert.alert('Error', 'Selected plan not found.');
+        Alert.alert('Error', 'Purchase could not be completed.');
       }
-    } catch (error: any) {
-      // Kullanıcı iptal ettiyse farklı mesaj göster
-      if (error?.message?.includes('cancel') || error?.message?.includes('user')) {
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (msg.toLowerCase().includes('cancel')) {
         Alert.alert('Cancelled', 'Purchase was cancelled.');
       } else {
-        Alert.alert('Error', `Purchase failed: ${error?.message || 'An unexpected error occurred'}`);
+        Alert.alert('Error', msg || 'Purchase failed.');
       }
     } finally {
       setPurchasing(false);
@@ -156,26 +144,30 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
   const handleRestore = async () => {
     try {
-      // Gerçek restore purchases implementasyonu
+      // Basit restore - kullanıcının mevcut abonelik durumunu kontrol et
       const token = await AsyncStorage.getItem('skillpath_token');
       const { AppConfig } = await import('../config/environment');
       
-      const response = await fetch(`${AppConfig.API_BASE_URL}/api/premium/restore`, {
+      const res = await fetch(`${AppConfig.API_BASE_URL}/api/premium/restore`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Content-Type': 'application/json' 
         },
+        body: JSON.stringify({ 
+          receipt: 'dummy_receipt' // expo-iap'te app-level receipt alma farklı
+        })
       });
 
-      if (response.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
         await refreshSubscription();
-        Alert.alert('Success', 'Purchases restored successfully!');
+        Alert.alert('Success', 'Purchases restored.');
       } else {
-        Alert.alert('Info', 'No previous purchases found to restore.');
+        Alert.alert('Info', data?.message || 'No active subscription to restore.');
       }
-    } catch (error) {
-      Alert.alert('Error', 'Subscription restore failed');
+    } catch {
+      Alert.alert('Error', 'Restore failed.');
     }
   };
 

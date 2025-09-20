@@ -22,6 +22,7 @@ import requests
 import asyncio
 import threading
 import time
+from utils.apple_verify import validate_apple_receipt, extract_latest_expiry, is_trial
 
 # Load environment variables
 load_dotenv()
@@ -39,6 +40,19 @@ app = FastAPI(
     description="Modern learning platform API",
     version="1.0.0"
 )
+
+# IAP Models
+class VerifyRequest(BaseModel):
+    platform: str  # "ios"
+    receipt: str
+    product_id: str | None = None
+    original_transaction_id: str | None = None
+
+class VerifyResponse(BaseModel):
+    success: bool
+    expires_at: str | None = None
+    is_trial: bool | None = None
+    message: str | None = None
 
 # CORS middleware - Frontend and Mobile app
 app.add_middleware(
@@ -2734,38 +2748,29 @@ async def start_trial(
 ):
     """Trial başlat - Apple receipt doğrulaması ile"""
     try:
-        # Apple receipt doğrulaması
         if not request.receipt:
             raise HTTPException(status_code=400, detail="Apple receipt required")
         
-        validation = _validate_apple_receipt(request.receipt)
-        status = validation.get("status")
-        if status != 0:
-            raise HTTPException(status_code=400, detail=f"Receipt invalid (status {status})")
+        data = await validate_apple_receipt(request.receipt)
+        if data.get("status") != 0:
+            raise HTTPException(status_code=400, detail=f"Receipt invalid (status {data.get('status')})")
         
-        # Receipt'ten subscription bilgilerini parse et
-        sub_info = _parse_subscription_info(validation)
+        expiry = extract_latest_expiry(data)
+        trial_flag = is_trial(data)
         
-        if sub_info["expires_at"]:
-            # Apple'dan gelen gerçek expiry date'i kullan
-            current_user.subscription_type = "trial" if sub_info["is_trial"] else "premium"
-            current_user.subscription_expires = sub_info["expires_at"]
-            current_user.trial_start_date = datetime.utcnow()
-            current_user.trial_end_date = sub_info["expires_at"]
-        else:
-            # Fallback: 3 günlük trial
-            trial_start = datetime.utcnow()
-            trial_end = trial_start + timedelta(days=3)
-            current_user.trial_start_date = trial_start
-            current_user.trial_end_date = trial_end
-            current_user.subscription_type = "trial"
+        if not expiry or expiry <= datetime.utcnow():
+            raise HTTPException(status_code=400, detail="No active trial/subscription on receipt")
         
+        current_user.subscription_type = "trial" if trial_flag else "premium"
+        current_user.subscription_expires = expiry
+        current_user.trial_start_date = None
+        current_user.trial_end_date = None
         db.commit()
         
         return PremiumPurchaseResponse(
-            success=True,
-            message="Trial başlatıldı",
-            expires_at=current_user.trial_end_date.isoformat() if current_user.trial_end_date else None
+            success=True, 
+            message="Verified", 
+            expires_at=expiry.isoformat()
         )
     except Exception as e:
         print(f"Error starting trial: {e}")
@@ -2779,85 +2784,111 @@ async def purchase_premium(
 ):
     """Premium abonelik satın al"""
     try:
-        expires_at = None
+        if (request.platform or "").lower() != "ios" or not request.receipt:
+            raise HTTPException(status_code=400, detail="Only iOS with receipt supported")
         
-        # Apple receipt doğrulaması (iOS için)
-        if (request.platform or "").lower() == "ios" and request.receipt:
-            validation = _validate_apple_receipt(request.receipt)
-            status = validation.get("status")
-            if status != 0:
-                raise HTTPException(status_code=400, detail=f"Receipt invalid (status {status})")
-            
-            # Receipt'ten subscription bilgilerini parse et
-            sub_info = _parse_subscription_info(validation)
-            if sub_info["expires_at"]:
-                expires_at = sub_info["expires_at"]
+        data = await validate_apple_receipt(request.receipt)
+        if data.get("status") != 0:
+            raise HTTPException(status_code=400, detail=f"Receipt invalid (status {data.get('status')})")
         
-        # Receipt'ten expiry date alınamadıysa fallback
-        if not expires_at:
-            if "monthly" in request.product_id:
-                expires_at = datetime.utcnow() + timedelta(days=30)
-            elif "yearly" in request.product_id:
-                expires_at = datetime.utcnow() + timedelta(days=365)
-            else:
-                raise HTTPException(status_code=400, detail="Invalid product ID")
+        expiry = extract_latest_expiry(data)
+        if not expiry or expiry <= datetime.utcnow():
+            raise HTTPException(status_code=400, detail="No active subscription")
         
-        # Kullanıcıyı premium yap
         current_user.subscription_type = "premium"
-        current_user.subscription_expires = expires_at
-        
-        # Trial bilgilerini temizle
+        current_user.subscription_expires = expiry
         current_user.trial_start_date = None
         current_user.trial_end_date = None
-        
         db.commit()
         
         return PremiumPurchaseResponse(
-            success=True,
-            message="Premium subscription activated successfully",
-            expires_at=expires_at.isoformat()
+            success=True, 
+            message="Premium activated", 
+            expires_at=expiry.isoformat()
         )
     except Exception as e:
         print(f"Error processing premium purchase: {e}")
         raise HTTPException(status_code=500, detail="Premium purchase failed")
 
+class RestoreRequest(BaseModel):
+    receipt: str
+
 @app.post("/api/premium/restore", response_model=PremiumPurchaseResponse)
 async def restore_purchases(
+    request: RestoreRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Restore previous purchases - check user's subscription status"""
+    """Restore previous purchases using app receipt"""
     try:
-        # Kullanıcının mevcut abonelik durumunu kontrol et
-        now = datetime.utcnow()
+        data = await validate_apple_receipt(request.receipt)
+        if data.get("status") != 0:
+            return PremiumPurchaseResponse(success=False, message=f"Apple status={data.get('status')}")
         
-        # Trial kontrolü
-        if current_user.subscription_type == "trial" and current_user.trial_end_date:
-            if now < current_user.trial_end_date:
-                return PremiumPurchaseResponse(
-                    success=True,
-                    message="Trial subscription restored",
-                    expires_at=current_user.trial_end_date.isoformat()
-                )
+        expiry = extract_latest_expiry(data)
+        if not expiry or expiry <= datetime.utcnow():
+            return PremiumPurchaseResponse(success=False, message="No active subscription")
         
-        # Premium kontrolü
-        if current_user.subscription_type == "premium" and current_user.subscription_expires:
-            if now < current_user.subscription_expires:
-                return PremiumPurchaseResponse(
-                    success=True,
-                    message="Premium subscription restored",
-                    expires_at=current_user.subscription_expires.isoformat()
-                )
+        current_user.subscription_type = "premium"
+        current_user.subscription_expires = expiry
+        current_user.trial_start_date = None
+        current_user.trial_end_date = None
+        db.commit()
         
-        # Aktif abonelik yok
         return PremiumPurchaseResponse(
-            success=False,
-            message="No active subscription found to restore"
+            success=True, 
+            message="Restored", 
+            expires_at=expiry.isoformat()
         )
-        
     except Exception as e:
         print(f"Error restoring purchases: {e}")
         raise HTTPException(status_code=500, detail="Restore failed")
+
+@app.post("/api/iap/verify", response_model=VerifyResponse)
+async def verify_ios_purchase(
+    req: VerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Unified IAP verification endpoint"""
+    if (req.platform or "").lower() != "ios":
+        raise HTTPException(status_code=400, detail="Invalid platform")
+
+    try:
+        data = await validate_apple_receipt(req.receipt)
+        status = data.get("status")
+        if status != 0:
+            return VerifyResponse(success=False, message=f"Apple status={status}")
+
+        expiry = extract_latest_expiry(data)
+        trial_flag = is_trial(data)
+
+        if not expiry or expiry <= datetime.utcnow():
+            # No active subscription
+            current_user.subscription_type = "free"
+            current_user.subscription_expires = None
+            current_user.trial_start_date = None
+            current_user.trial_end_date = None
+            db.commit()
+            return VerifyResponse(success=False, message="No active subscription")
+
+        # Update user subscription
+        current_user.subscription_type = "trial" if trial_flag else "premium"
+        current_user.subscription_expires = expiry
+        current_user.trial_start_date = None
+        current_user.trial_end_date = None
+        db.commit()
+
+        return VerifyResponse(
+            success=True, 
+            expires_at=expiry.isoformat(), 
+            is_trial=trial_flag,
+            message="Subscription verified successfully"
+        )
+
+    except Exception as e:
+        print(f"Error verifying receipt: {e}")
+        raise HTTPException(status_code=500, detail="Receipt verification failed")
 
 @app.get("/api/premium/status")
 async def get_premium_status(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -2866,28 +2897,14 @@ async def get_premium_status(current_user: User = Depends(get_current_user), db:
         now = datetime.utcnow()
         is_premium = False
         
-        # Trial kontrolü
-        if current_user.subscription_type == "trial" and current_user.trial_end_date:
-            if now < current_user.trial_end_date:
-                is_premium = True
-            else:
-                # Trial süresi dolmuş - otomatik abonelik başlat
-                # Apple'dan otomatik para çekme başlayacak
-                current_user.subscription_type = "premium"
-                # Varsayılan olarak aylık abonelik (30 gün)
-                current_user.subscription_expires = now + timedelta(days=30)
-                db.commit()
-                is_premium = True
-                print(f"Trial ended for user {current_user.id}, auto-subscription started")
-        
-        # Premium kontrolü
-        elif current_user.subscription_type == "premium" and current_user.subscription_expires:
-            if now < current_user.subscription_expires:
-                is_premium = True
-            else:
+        if current_user.subscription_type in ("trial", "premium") and current_user.subscription_expires:
+            is_premium = now < current_user.subscription_expires
+            if not is_premium:
                 # Süresi dolmuşsa free yap
                 current_user.subscription_type = "free"
                 current_user.subscription_expires = None
+                current_user.trial_start_date = None
+                current_user.trial_end_date = None
                 db.commit()
         
         return {
