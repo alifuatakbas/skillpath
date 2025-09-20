@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePremium } from '../contexts/PremiumContext';
-import { useIAP } from 'expo-iap';
+import { useIAP, getReceiptIOS } from 'expo-iap';
 
 // Subscription product interface
 interface SubscriptionProduct {
@@ -98,8 +98,13 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
       // Purchase başarılıysa backend'e gönder
       if (purchase && purchase.transactionId) {
-        // App-level receipt al (expo-iap'te bu farklı olabilir)
-        const appReceipt = purchase.transactionReceipt || 'dummy_receipt';
+        // App-level receipt al
+        const appReceipt = await getReceiptIOS();
+        if (!appReceipt) {
+          Alert.alert('Error', 'No App Store receipt found.');
+          setPurchasing(false);
+          return;
+        }
         
         // Backend'e verify et
         const token = await AsyncStorage.getItem('skillpath_token');
@@ -144,18 +149,26 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
   const handleRestore = async () => {
     try {
-      // Basit restore - kullanıcının mevcut abonelik durumunu kontrol et
+      // App-level receipt al
+      const appReceipt = await getReceiptIOS();
+      if (!appReceipt) {
+        Alert.alert('Info', 'No receipt found on device.');
+        return;
+      }
+
+      // Backend'e verify et
       const token = await AsyncStorage.getItem('skillpath_token');
       const { AppConfig } = await import('../config/environment');
       
-      const res = await fetch(`${AppConfig.API_BASE_URL}/api/premium/restore`, {
+      const res = await fetch(`${AppConfig.API_BASE_URL}/api/iap/verify`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`, 
           'Content-Type': 'application/json' 
         },
         body: JSON.stringify({ 
-          receipt: 'dummy_receipt' // expo-iap'te app-level receipt alma farklı
+          platform: 'ios', 
+          receipt: appReceipt 
         })
       });
 

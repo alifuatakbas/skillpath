@@ -9,23 +9,34 @@ SHARED_SECRET = os.getenv("APPLE_SHARED_SECRET")
 
 async def validate_apple_receipt(receipt_b64: str) -> Dict[str, Any]:
     """Validate Apple receipt with production-first then sandbox fallback"""
+    if not receipt_b64 or receipt_b64 == 'dummy_receipt':
+        return {"status": 21002, "message": "Invalid receipt data"}
+    
+    if not SHARED_SECRET:
+        return {"status": 21002, "message": "Missing shared secret"}
+    
     payload = {
         "receipt-data": receipt_b64,
         "password": SHARED_SECRET,
         "exclude-old-transactions": True,
     }
     
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        # Try production first
-        r = await client.post(APPLE_VERIFY_PROD, json=payload)
-        data = r.json()
-        
-        # If sandbox receipt sent to production (status 21007), try sandbox
-        if data.get("status") == 21007:
-            r = await client.post(APPLE_VERIFY_SANDBOX, json=payload)
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Try production first
+            r = await client.post(APPLE_VERIFY_PROD, json=payload)
             data = r.json()
-    
-    return data
+            
+            # If sandbox receipt sent to production (status 21007), try sandbox
+            if data.get("status") == 21007:
+                print("Sandbox receipt detected, retrying with sandbox URL...")
+                r = await client.post(APPLE_VERIFY_SANDBOX, json=payload)
+                data = r.json()
+        
+        return data
+    except Exception as e:
+        print(f"Apple receipt validation error: {e}")
+        return {"status": 21002, "message": f"Network error: {str(e)}"}
 
 def extract_latest_expiry(data: Dict[str, Any]) -> Optional[datetime]:
     """Extract latest expiry date from Apple receipt response"""
