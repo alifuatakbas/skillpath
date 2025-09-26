@@ -58,15 +58,18 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
 
-  // expo-iap hook kullan - subscription için doğru metodlar
-  const { 
+  // expo-iap hook kullan - type casting ile API metodları  
+  const iapHook = useIAP();
+  const {
     connected,
-    getSubscriptions,
-    requestSubscription,
     currentPurchase,
     currentPurchaseError,
     finishTransaction
-  } = useIAP();
+  } = iapHook;
+  
+  // API metodları type casting
+  const getSubscriptions = (iapHook as any).getSubscriptions;
+  const requestSubscription = (iapHook as any).requestSubscription;
   
   // Premium context kullan
   const { refreshSubscription, trialDaysLeft, trialExpiryDate } = usePremium();
@@ -83,9 +86,10 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
     (async () => {
       try {
         console.log('=== LOADING SUBSCRIPTIONS ===');
-        const subs = await getSubscriptions({ 
-          skus: ['skillpath_premium_monthly', 'skillpath_premium_yearly'] 
-        });
+        const subs = await getSubscriptions([
+          'skillpath_premium_monthly', 
+          'skillpath_premium_yearly'
+        ] as any);
         
         console.log('Subscriptions loaded:', JSON.stringify(subs, null, 2));
         
@@ -191,7 +195,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
     try {
       setPurchasing(true);
       // Subscription satın almayı başlat
-      await requestSubscription({ sku: selectedPlan });
+      await (requestSubscription as any)({ sku: selectedPlan });
       // Sonuç currentPurchase effect'inde handle ediliyor
     } catch (e: any) {
       const msg = String(e?.message || '');
