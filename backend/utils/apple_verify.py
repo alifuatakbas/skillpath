@@ -1,6 +1,6 @@
 import os
 import httpx
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
 APPLE_VERIFY_PROD = "https://buy.itunes.apple.com/verifyReceipt"
@@ -90,6 +90,17 @@ def extract_latest_expiry(data: Dict[str, Any]) -> Optional[datetime]:
         if cancelled:
             print("Latest subscription was cancelled - treating as inactive")
             return None
+        
+        # SANDBOX TESTING OVERRIDE: If subscription expired within 7 days, extend for testing
+        current_time = datetime.utcnow()
+        if expiry and data.get("environment") == "Sandbox":
+            time_diff = (current_time - expiry).total_seconds()
+            if 0 < time_diff < (7 * 24 * 60 * 60):  # Expired within last 7 days
+                print(f"Sandbox subscription expired {time_diff/3600:.1f} hours ago, extending for testing")
+                # Add 30 days for development testing
+                new_expiry = current_time + timedelta(days=30)
+                expiry = new_expiry
+                print(f"Sandbox override: New expiry = {expiry}")
             
         print(f"Final expiry: {expiry}")
         return expiry
