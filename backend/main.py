@@ -2734,7 +2734,7 @@ async def get_trial_status(current_user: User = Depends(get_current_user), db: S
         
         return TrialStatusResponse(
             days_left=days_left,
-            expiry_date=current_user.trial_end_date.isoformat() if current_user.trial_end_date else None,
+            expiry_date=current_user.trial_end_date.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z') if current_user.trial_end_date else None,
             is_active=is_active
         )
     except Exception as e:
@@ -2771,7 +2771,7 @@ async def start_trial(
         return PremiumPurchaseResponse(
             success=True, 
             message="Verified", 
-            expires_at=expiry.isoformat()
+            expires_at=expiry.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z')
         )
     except Exception as e:
         print(f"Error starting trial: {e}")
@@ -2805,7 +2805,7 @@ async def purchase_premium(
         return PremiumPurchaseResponse(
             success=True, 
             message="Premium activated", 
-            expires_at=expiry.isoformat()
+            expires_at=expiry.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z')
         )
     except Exception as e:
         print(f"Error processing premium purchase: {e}")
@@ -2839,7 +2839,7 @@ async def restore_purchases(
         return PremiumPurchaseResponse(
             success=True, 
             message="Restored", 
-            expires_at=expiry.isoformat()
+            expires_at=expiry.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z')
         )
     except Exception as e:
         print(f"Error restoring purchases: {e}")
@@ -2909,6 +2909,8 @@ async def verify_ios_purchase(
             message="Subscription verified successfully"
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error verifying receipt: {e}")
         raise HTTPException(status_code=500, detail="Receipt verification failed")
@@ -2933,7 +2935,7 @@ async def get_premium_status(current_user: User = Depends(get_current_user), db:
         return {
             "is_premium": is_premium,
             "subscription_type": current_user.subscription_type,
-            "expires_at": current_user.subscription_expires.isoformat() if current_user.subscription_expires else None
+            "expires_at": current_user.subscription_expires.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z') if current_user.subscription_expires else None
         }
     except Exception as e:
         print(f"Error getting premium status: {e}")

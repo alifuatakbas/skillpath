@@ -61,12 +61,11 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   // expo-iap hook kullan - subscription için doğru metodlar
   const { 
     connected,
-    requestProducts,
-    requestPurchase,
+    getSubscriptions,
+    requestSubscription,
     currentPurchase,
     currentPurchaseError,
-    finishTransaction,
-    products
+    finishTransaction
   } = useIAP();
   
   // Premium context kullan
@@ -84,29 +83,28 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
     (async () => {
       try {
         console.log('=== LOADING SUBSCRIPTIONS ===');
-        const productSkus = ['skillpath_premium_monthly', 'skillpath_premium_yearly'];
-        await requestProducts({ skus: productSkus });
+        const subs = await getSubscriptions({ 
+          skus: ['skillpath_premium_monthly', 'skillpath_premium_yearly'] 
+        });
+        
+        console.log('Subscriptions loaded:', JSON.stringify(subs, null, 2));
+        
+        if (subs?.length) {
+          const formattedPlans = subs.map((s: any) => ({
+            productId: s.productId,
+            title: s.title,
+            description: s.description ?? '',
+            price: String(s.price),
+            currency: s.currency ?? 'USD',
+            localizedPrice: s.localizedPrice ?? String(s.price)
+          }));
+          setPlans(formattedPlans);
+        }
       } catch (error) {
-        console.error('Error loading products:', error);
+        console.error('Error loading subscriptions:', error);
       }
     })();
-  }, [connected, requestProducts]);
-
-  // Products değişikliğini izle
-  useEffect(() => {
-    if (products && products.length > 0) {
-      console.log('Products received:', JSON.stringify(products, null, 2));
-      const formattedPlans = products.map((product: any) => ({
-        productId: product.productId,
-        title: product.title,
-        description: product.description ?? '',
-        price: String(product.price),
-        currency: product.currency ?? 'USD',
-        localizedPrice: product.localizedPrice ?? String(product.price)
-      }));
-      setPlans(formattedPlans);
-    }
-  }, [products]);
+  }, [connected, getSubscriptions]);
 
   // Purchase completion handler
   useEffect(() => {
@@ -193,7 +191,7 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
     try {
       setPurchasing(true);
       // Subscription satın almayı başlat
-      await requestPurchase({ sku: selectedPlan });
+      await requestSubscription({ sku: selectedPlan });
       // Sonuç currentPurchase effect'inde handle ediliyor
     } catch (e: any) {
       const msg = String(e?.message || '');
