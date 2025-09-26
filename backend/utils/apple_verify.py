@@ -50,14 +50,36 @@ async def validate_apple_receipt(receipt_b64: str) -> Dict[str, Any]:
 def extract_latest_expiry(data: Dict[str, Any]) -> Optional[datetime]:
     """Extract latest expiry date from Apple receipt response"""
     info = data.get("latest_receipt_info") or []
+    print(f"Latest receipt info items: {len(info)}")
+    
     if not info:
+        print("No latest_receipt_info found")
         return None
     
-    # Get the latest transaction by expiry date
-    latest = max(info, key=lambda i: int(i.get("expires_date_ms", "0")))
-    ms = int(latest.get("expires_date_ms", "0"))
-    
-    return datetime.utcfromtimestamp(ms/1000) if ms else None
+    # Check for pending/subscription expiry
+    try:
+        # Debug info
+        for i, item in enumerate(info):
+            print(f"Transaction {i}: expires_date_ms={item.get('expires_date_ms')}, expires_date={item.get('expires_date')}")
+        
+        # Get the latest transaction by expiry date
+        latest = max(info, key=lambda i: int(i.get("expires_date_ms", "0")))
+        ms = int(latest.get("expires_date_ms", "0"))
+        
+        print(f"Latest transaction expires_date_ms: {ms}")
+        print(f"Latest transaction: {latest}")
+        
+        # Check if valid transaction exists
+        if ms > 0:
+            expiry_time = datetime.utcfromtimestamp(ms/1000)
+            print(f"Found subscription expiring at: {expiry_time}")
+            return expiry_time
+        else:
+            print("No valid expiry date found in transactions")
+            return None
+    except Exception as e:
+        print(f"Error extracting expiry date: {e}")
+        return None
 
 def is_trial(data: Dict[str, Any]) -> bool:
     """Check if the latest transaction is in trial period"""

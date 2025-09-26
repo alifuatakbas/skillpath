@@ -2866,12 +2866,26 @@ async def verify_ios_purchase(
         
         status = data.get("status")
         if status != 0:
+            print(f"Apple validation failed with status: {status}")
             return VerifyResponse(success=False, message=f"Apple status={status}")
 
         expiry = extract_latest_expiry(data)
         trial_flag = is_trial(data)
+        
+        # Debug receipt structure
+        latest_receipt_info = data.get("latest_receipt_info", [])
+        print(f"latest_receipt_info length: {len(latest_receipt_info)}")
+        print(f"latest_receipt_info content: {latest_receipt_info}")
+        
+        print(f"Extracted expiry: {expiry}")
+        print(f"Is trial: {trial_flag}")
+        print(f"Current time: {datetime.utcnow()}")
 
         if not expiry or expiry <= datetime.utcnow():
+            print("No active subscription found")
+            print(f"Expiry: {expiry}")
+            print(f"Current time: {datetime.utcnow()}")
+            print(f"Receipt data keys: {list(data.keys())}")
             # No active subscription
             current_user.subscription_type = "free"
             current_user.subscription_expires = None

@@ -98,6 +98,9 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
       // Purchase başarılıysa backend'e gönder
       if (purchase && purchase.transactionId) {
+        console.log('=== PURCHASE DEBUG ===');
+        console.log('Purchase object:', JSON.stringify(purchase, null, 2));
+        
         // App-level receipt al - farklı yöntemler dene
         let appReceipt = await getReceiptIOS();
         console.log('getReceiptIOS result:', appReceipt?.length);
@@ -136,11 +139,15 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
         });
 
         const data = await res.json();
+        console.log('Backend response:', data);
+        console.log('Response status:', res.status);
+        
         if (res.ok && data.success) {
           await refreshSubscription();
           Alert.alert('Success', 'Purchase verified.');
           navigation.goBack();
         } else {
+          console.log('Verification failed:', data);
           Alert.alert('Error', data?.message || 'Verification failed.');
         }
       } else {
