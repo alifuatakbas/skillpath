@@ -48,48 +48,70 @@ async def validate_apple_receipt(receipt_b64: str) -> Dict[str, Any]:
         return {"status": 21002, "message": f"Network error: {str(e)}"}
 
 def extract_latest_expiry(data: Dict[str, Any]) -> Optional[datetime]:
-    """Extract latest expiry date from Apple receipt response"""
-    info = data.get("latest_receipt_info") or []
-    print(f"Latest receipt info items: {len(info)}")
+    """Extract latest expiry date from Apple receipt response - comprehensive checking"""
+    # Get all transaction items
+    items = (data.get("latest_receipt_info", []) + 
+             data.get("receipt", {}).get("in_app", []))
+    print(f"Total items to check: {len(items)}")
     
-    if not info:
-        print("No latest_receipt_info found")
+    if not items:
+        print("No receipt transaction info found")
         return None
     
-    # Check for pending/subscription expiry
     try:
-        # Debug info
-        for i, item in enumerate(info):
-            print(f"Transaction {i}: expires_date_ms={item.get('expires_date_ms')}, expires_date={item.get('expires_date')}")
+        max_ms = 0
+        expiry = None
+        cancelled = False
         
-        # Get the latest transaction by expiry date
-        latest = max(info, key=lambda i: int(i.get("expires_date_ms", "0")))
-        ms = int(latest.get("expires_date_ms", "0"))
+        # Check all items for latest expiry and cancellation
+        for i, item in enumerate(items):
+            expiry_ms = int(item.get("expires_date_ms", "0"))
+            is_cancelled = bool(item.get("cancellation_date"))
+            
+            print(f"Item {i}: expires_date_ms={expiry_ms}, cancelled={is_cancelled}")
+            
+            if expiry_ms > max_ms:
+                max_ms = expiry_ms
+                expiry = datetime.utcfromtimestamp(max_ms/1000)
+                cancelled = is_cancelled
+                print(f"New max expiry: {expiry} (cancelled={is_cancelled})")
         
-        print(f"Latest transaction expires_date_ms: {ms}")
-        print(f"Latest transaction: {latest}")
+        # Handle billing retry periods (optional)
+        billing_retry = data.get("pending_renewal_info", [])
+        for billing_info in billing_retry:
+            if billing_info.get("is_in_billing_retry_period") == "true":
+                print("Billing retry period active - extending verification time")
+                # Grace period logic could be added here
         
-        # Check if valid transaction exists
-        if ms > 0:
-            expiry_time = datetime.utcfromtimestamp(ms/1000)
-            print(f"Found subscription expiring at: {expiry_time}")
-            return expiry_time
-        else:
-            print("No valid expiry date found in transactions")
+        if max_ms == 0:
+            print("No valid expiry dates found")
             return None
+            
+        if cancelled:
+            print("Latest subscription was cancelled - treating as inactive")
+            return None
+            
+        print(f"Final expiry: {expiry}")
+        return expiry
+        
     except Exception as e:
         print(f"Error extracting expiry date: {e}")
         return None
 
 def is_trial(data: Dict[str, Any]) -> bool:
     """Check if the latest transaction is in trial period"""
-    info = data.get("latest_receipt_info") or []
-    if not info:
+    items = (data.get("latest_receipt_info", []) + 
+             data.get("receipt", {}).get("in_app", []))
+    
+    if not items:
         return False
     
     # Get the latest transaction by expiry date
-    latest = max(info, key=lambda i: int(i.get("expires_date_ms", "0")))
-    return str(latest.get("is_trial_period", "false")).lower() == "true"
+    if items:
+        latest = max(items, key=lambda i: int(i.get("expires_date_ms", "0")))
+        return str(latest.get("is_trial_period", "false")).lower() == "true"
+    
+    return False
 
 def get_product_id(data: Dict[str, Any]) -> Optional[str]:
     """Get product ID from latest transaction"""

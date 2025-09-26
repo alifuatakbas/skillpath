@@ -58,8 +58,16 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
 
-  // expo-iap hook kullan
-  const { connected, products, requestProducts, requestPurchase, validateReceipt } = useIAP();
+  // expo-iap hook kullan - subscription için doğru metodlar
+  const { 
+    connected,
+    requestProducts,
+    requestPurchase,
+    currentPurchase,
+    currentPurchaseError,
+    finishTransaction,
+    products
+  } = useIAP();
   
   // Premium context kullan
   const { refreshSubscription, trialDaysLeft, trialExpiryDate } = usePremium();
@@ -69,58 +77,58 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
     setSelectedPlan('skillpath_premium_monthly');
   }, []);
 
+  // Subscription ürünlerini yükle
   useEffect(() => {
-    // Store'dan ürünleri yükle
-    if (connected) {
-      requestProducts({ skus: ['skillpath_premium_monthly', 'skillpath_premium_yearly'], type: 'subs' });
-    } else {
-    }
+    if (!connected) return;
+    
+    (async () => {
+      try {
+        console.log('=== LOADING SUBSCRIPTIONS ===');
+        const productSkus = ['skillpath_premium_monthly', 'skillpath_premium_yearly'];
+        await requestProducts({ skus: productSkus });
+      } catch (error) {
+        console.error('Error loading products:', error);
+      }
+    })();
   }, [connected, requestProducts]);
 
+  // Products değişikliğini izle
   useEffect(() => {
-    // Purchase listener - expo-iap'te purchase-updated event'ini dinle
-    // Not: expo-iap'te event listener yok, purchase sonrası manuel handle ediyoruz
-  }, []);
-
-  const handleStartTrial = async () => {
-    if (!selectedPlan) {
-      Alert.alert('Error', 'Please select a plan');
-      return;
+    if (products && products.length > 0) {
+      console.log('Products received:', JSON.stringify(products, null, 2));
+      const formattedPlans = products.map((product: any) => ({
+        productId: product.productId,
+        title: product.title,
+        description: product.description ?? '',
+        price: String(product.price),
+        currency: product.currency ?? 'USD',
+        localizedPrice: product.localizedPrice ?? String(product.price)
+      }));
+      setPlans(formattedPlans);
     }
+  }, [products]);
 
-    try {
-      setPurchasing(true);
-      // Satın alma işlemini başlat
-      const purchase = await requestPurchase({
-        request: { sku: selectedPlan },
-        type: 'subs'
-      } as any);
-
-      // Purchase başarılıysa backend'e gönder
-      if (purchase && purchase.transactionId) {
-        console.log('=== PURCHASE DEBUG ===');
-        console.log('Purchase object:', JSON.stringify(purchase, null, 2));
+  // Purchase completion handler
+  useEffect(() => {
+    if (!currentPurchase) return;
+    
+    (async () => {
+      try {
+        console.log('=== HANDLING PURCHASE ===');
+        console.log('Purchase:', JSON.stringify(currentPurchase, null, 2));
         
-        // App-level receipt al - farklı yöntemler dene
+        // 1) Receipt al
         let appReceipt = await getReceiptIOS();
-        console.log('getReceiptIOS result:', appReceipt?.length);
-        
-        // Eğer getReceiptIOS çalışmazsa, purchase'tan al
-        if (!appReceipt && purchase.transactionReceipt) {
-          appReceipt = purchase.transactionReceipt;
-          console.log('Using purchase.transactionReceipt:', appReceipt?.length);
+        if (!appReceipt && currentPurchase.transactionReceipt) {
+          appReceipt = currentPurchase.transactionReceipt;
         }
-        
-        console.log('Final receipt length:', appReceipt?.length);
-        console.log('Receipt preview:', appReceipt?.substring(0, 50));
         
         if (!appReceipt) {
           Alert.alert('Error', 'No App Store receipt found.');
-          setPurchasing(false);
           return;
         }
         
-        // Backend'e verify et
+        // 2) Backend'e verify et
         const token = await AsyncStorage.getItem('skillpath_token');
         const { AppConfig } = await import('../config/environment');
         
@@ -133,26 +141,60 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
           body: JSON.stringify({
             platform: 'ios',
             receipt: appReceipt,
-            product_id: purchase?.productId ?? selectedPlan,
-            original_transaction_id: purchase?.originalTransactionIdentifier ?? purchase?.transactionId,
+            product_id: (currentPurchase as any).productId,
+            original_transaction_id: (currentPurchase as any).originalTransactionIdentifier ?? (currentPurchase as any).transactionId,
           })
         });
-
+        
         const data = await res.json();
         console.log('Backend response:', data);
-        console.log('Response status:', res.status);
         
         if (res.ok && data.success) {
+          // Transaction'ı tamamla
+          await finishTransaction({ 
+            purchase: currentPurchase, 
+            isConsumable: false 
+          });
+          
           await refreshSubscription();
           Alert.alert('Success', 'Purchase verified.');
           navigation.goBack();
         } else {
-          console.log('Verification failed:', data);
           Alert.alert('Error', data?.message || 'Verification failed.');
         }
-      } else {
-        Alert.alert('Error', 'Purchase could not be completed.');
+      } catch (error) {
+        console.error('Purchase handling error:', error);
+        Alert.alert('Error', 'Purchase verification failed.');
+      } finally {
+        setPurchasing(false);
       }
+    })();
+  }, [currentPurchase, finishTransaction]);
+
+  // Purchase error handler
+  useEffect(() => {
+    if (currentPurchaseError) {
+      console.error('Purchase error:', currentPurchaseError);
+      Alert.alert('Error', String(currentPurchaseError));
+      setPurchasing(false);
+    }
+  }, [currentPurchaseError]);
+
+  const handleStartTrial = async () => {
+    if (!selectedPlan) {
+      Alert.alert('Error', 'Please select a plan');
+      return;
+    }
+
+    console.log('=== PURCHASE STARTED ===');
+    console.log('Selected Plan:', selectedPlan);
+    console.log('Connected:', connected);
+
+    try {
+      setPurchasing(true);
+      // Subscription satın almayı başlat
+      await requestPurchase({ sku: selectedPlan });
+      // Sonuç currentPurchase effect'inde handle ediliyor
     } catch (e: any) {
       const msg = String(e?.message || '');
       if (msg.toLowerCase().includes('cancel')) {
@@ -160,7 +202,6 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
       } else {
         Alert.alert('Error', msg || 'Purchase failed.');
       }
-    } finally {
       setPurchasing(false);
     }
   };

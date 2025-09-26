@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 import uvicorn
@@ -2715,17 +2715,18 @@ async def get_trial_status(current_user: User = Depends(get_current_user), db: S
         if current_user.trial_start_date and current_user.trial_end_date:
             trial_end = current_user.trial_end_date
             if now < trial_end:
-                days_left = (trial_end - now).days
+                import math
+                days_left = math.ceil((trial_end - now).total_seconds() / 86400)
                 is_active = True
             else:
                 days_left = 0
                 is_active = False
-                # Trial süresi dolmuşsa otomatik abonelik başlat
+                # Trial süresi dolmuşsa sadece trial'ı deaktive et
                 if current_user.subscription_type == "trial":
-                    current_user.subscription_type = "premium"
-                    current_user.subscription_expires = now + timedelta(days=30)
+                    current_user.subscription_type = "free"
+                    current_user.subscription_expires = None
                     db.commit()
-                    print(f"Trial ended for user {current_user.id}, auto-subscription started")
+                    print(f"Trial ended for user {current_user.id}")
         else:
             # Trial başlatılmamış
             days_left = 0
@@ -2903,7 +2904,7 @@ async def verify_ios_purchase(
 
         return VerifyResponse(
             success=True, 
-            expires_at=expiry.isoformat(), 
+            expires_at=expiry.replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z'), 
             is_trial=trial_flag,
             message="Subscription verified successfully"
         )
@@ -2937,34 +2938,3 @@ async def get_premium_status(current_user: User = Depends(get_current_user), db:
     except Exception as e:
         print(f"Error getting premium status: {e}")
         raise HTTPException(status_code=500, detail="Premium status check failed")
-    """Kullanıcıya günlük bildirim gönder"""
-    try:
-        # Günlük hatırlatma oluştur
-        reminder_response = await get_daily_reminder_internal(user, db)
-        
-        if reminder_response["success"]:
-            # Bildirim kaydı oluştur
-            notification = Notification(
-                user_id=user.id,
-                title=reminder_response["reminder_data"]["title"],
-                message=reminder_response["reminder_data"]["message"],
-                notification_type="daily_reminder",
-                roadmap_title=reminder_response["reminder_data"].get("roadmap_title"),
-                sent_at=datetime.now()
-            )
-            db.add(notification)
-            db.commit()
-            
-            # Push notification gönder
-            await send_push_notification(
-                user.id, 
-                reminder_response["reminder_data"]["title"], 
-                reminder_response["reminder_data"]["message"], 
-                db
-            )
-            
-            print(f"📨 Günlük bildirim gönderildi: {user.id}")
-            
-    except Exception as e:
-        print(f"Günlük bildirim gönderme hatası: {e}")
-        db.rollback()
