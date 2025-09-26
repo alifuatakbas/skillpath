@@ -194,11 +194,30 @@ const PaywallScreen: React.FC<PaywallScreenProps> = ({ navigation, route }) => {
 
     try {
       setPurchasing(true);
-      // Subscription satın almayı başlat
-      await (requestSubscription as any)({ sku: selectedPlan });
+      // Debug sandbox subscription check
+      console.log('Attempting new subscription purchase...');
+      
+      // Attempt subscription purchase for testflight
+      const purchaseResult = await (requestSubscription as any)({ sku: selectedPlan });
+      console.log('Purchase result:', purchaseResult);
+      
+      // Only handle if this is a new transaction
+      if (purchaseResult && purchaseResult.transactionId) {
+        console.log('New transaction detected:', purchaseResult.transactionId);
+      } else {
+        console.log('No new transaction - might already have active subscription');
+        Alert.alert(
+          'Subscription Already Active',
+          'You already have an active subscription for this plan. Please try a different plan or contact support if this is incorrect.',
+          [{ text: 'OK' }]
+        );
+        setPurchasing(false);
+        return;
+      }
       // Sonuç currentPurchase effect'inde handle ediliyor
     } catch (e: any) {
       const msg = String(e?.message || '');
+      console.log('Purchase error details:', msg);
       if (msg.toLowerCase().includes('cancel')) {
         Alert.alert('Cancelled', 'Purchase was cancelled.');
       } else {
